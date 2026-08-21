@@ -45,15 +45,27 @@ class SigmaError(RuntimeError):
 
 
 def _read_env():
-    if not ENV_FILE.exists():
-        raise SigmaError(0, "missing %s" % ENV_FILE, str(ENV_FILE))
-    env = {}
-    for line in ENV_FILE.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        env[k.strip()] = v.strip().strip('"').strip("'")
+    if ENV_FILE.exists():
+        env = {}
+        for line in ENV_FILE.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            env[k.strip()] = v.strip().strip('"').strip("'")
+        return env
+    # Fallback for cloud environments: no local ~/.sigma-portals/staging.env,
+    # but SIGMA_STAGING_CLIENT_ID/SECRET set as cloud-environment variables
+    # land directly in os.environ instead.
+    env = {k: v for k, v in os.environ.items()
+           if k in ("SIGMA_STAGING_CLIENT_ID", "SIGMA_STAGING_CLIENT_SECRET")}
+    if "SIGMA_STAGING_CLIENT_ID" not in env or "SIGMA_STAGING_CLIENT_SECRET" not in env:
+        raise SigmaError(
+            0,
+            "missing %s, and SIGMA_STAGING_CLIENT_ID/SIGMA_STAGING_CLIENT_SECRET "
+            "not both set in the environment" % ENV_FILE,
+            str(ENV_FILE),
+        )
     return env
 
 
