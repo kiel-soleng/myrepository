@@ -1505,7 +1505,7 @@ def statement_activity_sql(cfg):
                 "Merchant Name or Transaction Description", "Category", "Amount",
                 "Points Earned"]
         rows = [("'%s/2026'" % t, "'%s/2026'" % pd, "'%s'" % d.replace("'", "''"),
-                 "'%s'" % c, "%.2f" % amt, "%.2f" % pts)
+                 "'%s'" % c, "%.2f" % amt, str(pts))
                 for t, pd, d, c, amt, pts in _DC_ACTIVITY]
         return _union(rows, cols)
     if cfg["key"] != "delta":
@@ -1524,7 +1524,7 @@ def rewards_summary_sql(cfg):
         rows = [(str(o), "'%s'" % d, str(p)) for o, d, p in _VR_USAGE]
         return _union(rows, ["Line Order", "Description", "Points"])
     if cfg["key"] == "disney":
-        rows = [(str(o), "'%s'" % d, "%.2f" % p) for o, d, p in _DC_REWARDS]
+        rows = [(str(o), "'%s'" % d, str(p)) for o, d, p in _DC_REWARDS]
         return _union(rows, ["Line Order", "Description", "Points"])
     if cfg["key"] != "delta":
         return None
@@ -3096,7 +3096,7 @@ LABELS["disney"] = {
     "seg_product": "Segment",
     "seg_credit": "Audience affinity tier",
     "seg_type": "Revenue type",
-    "seg_dd": "Engagement frequency",
+    "seg_dd": "Park Annual Passholder",
     "seg_engage": "Engagement frequency",
     "seg_held": "Segments followed",
     "cohort_name": "Fan segment name",
@@ -3162,34 +3162,42 @@ COMPANIES["disney"] = DISNEY
 # real product issued by Chase -- disclosed in the footer, matching how SoFi
 # names The Bank of Missouri and Delta names American Express.
 _DC_ACTIVITY = [
-    ("07/01", "07/02", "Disney+ Premium Monthly Subscription", "Streaming", 15.99, 0.32),
-    ("07/03", "07/04", "Walt Disney World Resort — Annual Pass Payment", "Parks & Resorts", 89.00, 1.78),
-    ("07/05", "07/06", "Disney Store — Star Wars Merchandise", "Merchandise", 64.50, 1.29),
-    ("07/08", "07/09", "Disney Cruise Line — Onboard Charges", "Travel", 212.30, 4.25),
-    ("07/10", "07/11", "ESPN+ Annual Renewal", "Streaming", 109.99, 2.20),
-    ("07/12", "07/13", "Disneyland Resort — Genie+ Lightning Lane", "Parks & Resorts", 45.00, 0.90),
-    ("07/15", "07/16", "Grocery — Whole Foods Market", "Everyday Spend", 186.40, 1.86),
-    ("07/17", "07/18", "Marvel Studios — Digital Movie Purchase", "Entertainment", 19.99, 0.40),
-    ("07/19", "07/20", "Disney Springs — Dining, The Boathouse", "Dining", 138.75, 2.78),
-    ("07/22", "07/23", "Gas Station — Shell", "Everyday Spend", 52.10, 0.52),
-    ("07/24", "07/25", "National Geographic Expeditions — Deposit", "Travel", 500.00, 10.00),
-    ("07/27", "07/28", "Disney Store — Loungefly Backpack", "Merchandise", 78.00, 1.56),
+    # Points earned at 2 pts/$1 on Disney categories, 1 pt/$1 everyday spend.
+    ("07/01", "07/02", "Disney+ Premium Monthly Subscription", "Streaming", 15.99, 32),
+    ("07/03", "07/04", "Walt Disney World Resort — Annual Pass Payment", "Parks & Resorts", 89.00, 178),
+    ("07/05", "07/06", "Disney Store — Star Wars Merchandise", "Merchandise", 64.50, 129),
+    ("07/08", "07/09", "Disney Cruise Line — Onboard Charges", "Travel", 212.30, 425),
+    ("07/10", "07/11", "ESPN+ Annual Renewal", "Streaming", 109.99, 220),
+    ("07/12", "07/13", "Disneyland Resort — Genie+ Lightning Lane", "Parks & Resorts", 45.00, 90),
+    ("07/15", "07/16", "Grocery — Whole Foods Market", "Everyday Spend", 186.40, 186),
+    ("07/17", "07/18", "Marvel Studios — Digital Movie Purchase", "Entertainment", 19.99, 40),
+    ("07/19", "07/20", "Disney Springs — Dining, The Boathouse", "Dining", 138.75, 278),
+    ("07/22", "07/23", "Gas Station — Shell", "Everyday Spend", 52.10, 52),
+    ("07/24", "07/25", "National Geographic Expeditions — Deposit", "Travel", 500.00, 1000),
+    ("07/27", "07/28", "Disney Store — Loungefly Backpack", "Merchandise", 78.00, 156),
 ]
 
+# Points, not dollars -- the fixed "Points" column renders as a whole number
+# (same as Delta's miles), so redemption value is stated separately (100
+# points = $1) rather than trying to carry cents through an integer column.
+# "Balance carried forward" is the OPENING balance from the prior period
+# (matching Delta's _DL_MILES shape): the headline Sum([Rewards Summary/
+# Points]) formula totals this whole table, so opening balance + this
+# period's earn/redeem activity = closing balance. A separate closing-total
+# row would double-count against that sum.
 _DC_REWARDS = [
-    (1, "Disney Reward Dollars earned from purchases", 27.86),
-    (2, "Bonus Reward Dollars — cardmember anniversary", 5.00),
-    (3, "Reward Dollars earned from Disney+ bundle promo", 1.50),
-    (4, "Redeemed toward Disneyland Resort hotel stay", -12.00),
-    (5, "Redeemed for Disney+ Premium gift subscription", -6.00),
-    (6, "Reward Dollars carried forward from June", 9.00),
-    (7, "Balance carried forward", 25.36),
+    (1, "Disney Reward Points earned from purchases", 2786),
+    (2, "Bonus Reward Points — cardmember anniversary", 500),
+    (3, "Reward Points earned from Disney+ bundle promo", 150),
+    (4, "Redeemed toward Disneyland Resort hotel stay", -1200),
+    (5, "Redeemed for Disney+ Premium gift subscription", -600),
+    (6, "Balance carried forward", 900),
 ]
 
 _DC_SUMMARY = [
     (1, "Card tier", "Disney Premier Visa"),
-    (2, "Reward Dollars this period", "$27.86"),
-    (3, "Reward Dollars available to redeem", "$25.36"),
+    (2, "Reward Points this period", "2,786"),
+    (3, "Reward Points available to redeem", "2,536 (worth $25.36)"),
     (4, "D23 Gold Member status", "Active through 03/2027"),
     (5, "Annual Passholder tier", "Disney World — Sorcerer Pass"),
     (6, "Statement period", "07/01 – 07/31/2026"),
@@ -3201,34 +3209,35 @@ STATEMENTS["disney"] = {
     "spec_name": "The Walt Disney Company — Disney Rewards Visa Statement (July 2026)",
     "page_name": "Disney Rewards Statement",
     "manage_url": "disneyrewards.com/account",
-    "service_label": "Disney Rewards Cardmember Services",
+    "service_label": "Rewards Service",
     "service_phone": "1-800-555-0173",
     "period": "07/01 – 07/31/2026",
-    "sect_rewards": "DISNEY REWARD DOLLARS ACTIVITY",
+    "sect_rewards": "DISNEY REWARD POINTS ACTIVITY",
     "sect_summary": "REWARDS & MEMBERSHIP SUMMARY",
-    "sect_category": "REWARD DOLLARS BY EARN SOURCE",
+    "sect_category": "REWARD POINTS BY EARN SOURCE",
     "sect_activity": "PURCHASE ACTIVITY",
     "sect_messages": "YOUR DISNEY REWARDS MESSAGES",
-    "headline": [("Reward Dollars Balance", None), ("Parks & Resorts Spend", None),
+    "headline": [("Reward Points Balance", None), ("Parks & Resorts Spend", None),
                  ("Annual Passholder Tier", "Sorcerer Pass")],
     "button_label": "Disney Rewards statement ↗",
-    "rewards_total": "Total Reward Dollars available",
-    "h_formulas": [("src-rw", 'Sum([Rewards Summary/Points])', "MONEY"),
+    "rewards_total": "Total Reward Points available",
+    "h_formulas": [("src-rw", 'Sum([Rewards Summary/Points])', "NUM0"),
                    ("src", 'SumIf([Statement Activity/Amount], '
                     '[Statement Activity/Category] = "Parks & Resorts")', "MONEY")],
-    "msg_body": ("Starting 09/01/2026, Disney Reward Dollars earned on Parks & "
-                 "Resorts and Disney+ purchases increase from 2% to 3%, with "
-                 "Reward Dollars redeemable toward park tickets, Disney Cruise "
-                 "Line sailings, Disney+ subscriptions, or statement credit. No "
-                 "action is required to keep earning at the new rate."),
+    "msg_body": ("Starting 09/01/2026, Disney Reward Points earned on Parks & "
+                 "Resorts and Disney+ purchases increase from 2 to 3 points per "
+                 "dollar, redeemable at 100 points = $1 toward park tickets, "
+                 "Disney Cruise Line sailings, Disney+ subscriptions, or "
+                 "statement credit. No action is required to keep earning at "
+                 "the new rate."),
     "warn1": ("**Late Payment Warning:** If we do not receive your minimum "
               "payment by the date listed above, you may have to pay a late "
               "fee of up to $29.00 and your APR may be subject to increase to "
               "the Penalty APR of 29.99%."),
     "warn2": ("**Minimum Payment Warning:** Paying only the minimum payment "
               "will increase the interest you pay and the time it takes to "
-              "repay your balance. Enroll in AutoPay at "
-              "disneyrewards.com/account to avoid missing a payment."),
+              "repay your balance. Enroll in AutoPay to avoid missing a "
+              "payment."),
     "footer": ("The Disney Premier Visa Card is issued by Chase Bank USA, N.A. "
                "Illustrative statement generated from a Sigma report "
                "specification — synthetic data, not a real account."),
