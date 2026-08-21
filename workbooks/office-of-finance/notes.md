@@ -28,15 +28,16 @@ build script or iteration yet.
 |------|----------------|-------------|-------------|------------|--------------------|
 | 2026-08-21 | `20260821-2017-page1-budget-variance.json` | `prompts/20260821-1246.md` | POST succeeded (`workbookId: 759ddb59-8b5c-4d80-a431-fe24773c483d`), all 13 elements compile clean per `verify-workbook.sh`. | (1) Draft was ported in from a checkout still on the pre-2026-08 flat top-level shape — this repo's live API now requires the `document{}` envelope, flat `document.elements`, and `<Element>`/`<Container>` layout tags. (2) `bar-variance-by-department` only carried 2 of 5 source columns — passthrough-coverage fail. (3) `ctrl-period` control was missing the required `name` field. (4) `kpi-chart.value` used `{id}` instead of `{columnId}` — rejected with `Invalid kind: "kpi-chart"`. (5) Chart axis used legacy `xAxis: {id}` / `yAxis: [{id}]` — rejected with `Invalid kind: "bar-chart"`; switched to modern `xAxis: {columnId}` / `yAxis: {columnIds}`. | Yes — see `reference/history.md` → "2026-08-21 — `document{}` envelope missing from this skill entirely". Ported `reference/schema-2026-08-breaking-changes.md` into the skill and added it to the "every build" required-reading row; patched `scripts/validate-spec.py` to normalize the `document` envelope and accept both old/new layout tag names. |
 
-## Open decisions carried over from the prompt (still unresolved)
+## Open decisions carried over from the prompt
 
-1. `bar-variance-by-department` is a plain bar chart substituting for the
-   requested variance-bridge/waterfall look (unsupported by workbooks-as-
-   code). OK to ship as-is, or hold for a real waterfall built in the UI
-   post-creation?
-2. Page title says "FY26" as a placeholder fiscal period — confirm or
-   replace before this goes in front of anyone.
-3. Visual verification (does it actually *look* right) hasn't happened —
+1. **Resolved 2026-08-21 (kiel): ship as-is.** `bar-variance-by-department`
+   stays a plain bar chart substituting for the requested variance-bridge/
+   waterfall look (unsupported by workbooks-as-code) — not holding for a
+   real waterfall built in the UI.
+2. **Resolved 2026-08-21 (kiel): leave the "FY26" placeholder.** Fiscal
+   period label in the page title will be swapped later, before this goes
+   in front of anyone.
+3. Still open — visual verification (does it actually *look* right) hasn't happened —
    only structural validation (`validate-spec.py`) and compile-check
    (`verify-workbook.sh`) have run. Open the workbook URL below and
    eyeball it before promoting to `examples/`.
