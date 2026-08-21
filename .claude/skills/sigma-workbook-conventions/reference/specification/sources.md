@@ -192,14 +192,48 @@ SQL fails to compile.
 
 ---
 
+## sql — custom SQL query
+
+Runs a raw statement against a warehouse connection instead of a
+data-model/warehouse-table source. Used for synthetic/demo data
+(seed-constant CTEs) or any query a data model doesn't already
+expose.
+
+```json
+{
+  "kind": "sql",
+  "connectionId": "<conn-uuid>",
+  "statement": "SELECT ... AS \"Column Name\" FROM ..."
+}
+```
+
+Columns are referenced downstream as `[Custom SQL/<Column Name>]` —
+same passthrough mandate as every other source (see
+`reference/conventions.md` → "Passthrough mandate"): declare every
+column you need on the table element's own `columns[]`, quote-aliased
+to match `statement`'s output names exactly.
+
+**No trailing semicolon.** Sigma wraps `statement` as a derived
+subquery — `select <cols> from (\n<statement>\n) Q1 limit 1000` — so a
+statement ending in `;` produces `...ORDER BY x;\n) Q1 limit 1000`,
+which is invalid syntax on every warehouse. This POSTs fine and
+`verify-workbook.sh` reports it as compiling clean (it only greps the
+compiled SQL for unresolved-formula markers, not warehouse execution
+errors — see `reference/workflows/validate.md`) — the failure only
+surfaces live, as **"warehouse error: query failed" on every element**
+sourced from that statement (all of them, since they all wrap the same
+broken subquery). If every element on a Custom-SQL-sourced page fails
+identically in the UI after a clean `verify-workbook.sh`, check for a
+trailing `;` in the statement before suspecting the connection.
+Verified 2026-08-21 (`sigma-office-of-finance` skill's `sql/*.sql` —
+all three files had this bug).
+
 ## Other source kinds
 
 These exist but are less common; model the shape off an existing
 workbook's spec via
 `scripts/api/publish-workbook.sh get-spec <wb-id>`:
 
-- `sql` — custom SQL query. Inspect via `jq
-  '.components.schemas.SqlSource' /tmp/sigma-api.json`.
 - `transpose` — transposes rows/columns.
 
 Document the shape in this skill if you encounter a real example

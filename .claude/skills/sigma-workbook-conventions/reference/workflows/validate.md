@@ -3,7 +3,7 @@
 Validation runs in three phases:
 
 1. **Pre-submit** — `scripts/validate-spec.py` catches what's visible
-   in the spec text (13 checks).
+   in the spec text (14 checks).
 2. **Post-create** — `scripts/api/verify-workbook.sh` catches what
    Sigma's compiler discovers but the spec parser tolerates.
 3. **Visual** — open the workbook URL and confirm it renders.
@@ -19,7 +19,7 @@ Load this before any POST or PUT.
 scripts/validate-spec.py workbooks/<name>/spec.json
 ```
 
-13 checks (as of 2026-07-02):
+14 checks (as of 2026-08-21):
 
 | # | Check | What it catches |
 |---|---|---|
@@ -36,6 +36,7 @@ scripts/validate-spec.py workbooks/<name>/spec.json
 | 11 | `summary-calc-collision` | Column IDs that appear in both `summary[]` and a `groupings[].calculations[]` list on the same table. POST rejects with `Duplicate column or folder reference`. Fix: split into two column definitions with distinct IDs. Added 2026-07-02 after `exec-scorecard` v1 hit this mid-build. See `reference/specification/tables.md` → "summary — summary-bar pattern." |
 | 12 | `description-object-on-kpi-and-table` | Plain-string `description` on `kpi-chart`, `table`, `pivot-table`, or `input-table` elements. POST rejects with `Invalid object: string`. Fix: wrap as `{"text": "..."}` or `{"visibility": "hidden"}`. Chart elements accept the string form. Added 2026-07-02 after `inventory-health` build hit this. See `reference/specification/kpis.md` → "Description must be an object." |
 | 13 | `pivot-missing-rows-and-columns` | Pivot-tables that have `values` but neither `rowsBy` nor `columnsBy` — the pivot compiles cleanly (passes POST + verify) but renders as a single grand-total row. Fix: add at least one `rowsBy` or `columnsBy` entry (`[{"id": "<dim-col-id>"}]`). Added 2026-07-02 after `Product-and-Basket-Performance` shipped two pivots that rendered as grand-total-only in the UI. See `reference/specification/tables.md` → "Shape" (pivot section). |
+| 14 | `sql-source-trailing-semicolon` | A `kind: "sql"` source's `statement` ending in `;` — Sigma wraps it as a subquery, so the trailing `;` is invalid syntax on every warehouse. POSTs fine and `verify-workbook.sh` reports it as compiling clean; fails live as "warehouse error: query failed" on every element sourced from that statement. Fix: strip the trailing semicolon. Added 2026-08-21 after `sigma-office-of-finance`'s three `sql/*.sql` files all shipped with one. See `reference/specification/sources.md` → "sql — custom SQL query." |
 
 Fix everything reported before continuing. If exit 0, proceed to the
 manual pass.

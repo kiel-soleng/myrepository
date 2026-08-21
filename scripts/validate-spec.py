@@ -40,6 +40,7 @@ CHECKS = [
     "summary-calc-collision",
     "description-object-on-kpi-and-table",
     "pivot-missing-rows-and-columns",
+    "sql-source-trailing-semicolon",
 ]
 
 
@@ -674,6 +675,40 @@ def issues_pivot_missing_rows_and_columns(spec: dict) -> list[tuple[str, str]]:
     return issues
 
 
+def issues_sql_source_trailing_semicolon(spec: dict) -> list[tuple[str, str]]:
+    """Fail-level: a `kind: "sql"` source's `statement` ending in `;`.
+
+    Sigma wraps `statement` as a derived subquery —
+    `select <cols> from (\\n<statement>\\n) Q1 limit 1000` — so a trailing
+    semicolon produces invalid syntax on every warehouse. This POSTs
+    fine and `verify-workbook.sh` reports the element as compiling
+    clean (it only checks for unresolved-formula markers in the
+    compiled SQL, not warehouse execution) — the failure only surfaces
+    live, as "warehouse error: query failed" on every element sourced
+    from that statement. See `reference/specification/sources.md` →
+    "sql — custom SQL query".
+
+    Verified 2026-08-21 (`sigma-office-of-finance` skill's `sql/*.sql`).
+    """
+    issues = []
+    for pi, el in _all_elements(spec):
+        src = el.get("source") or {}
+        if src.get("kind") != "sql":
+            continue
+        statement = src.get("statement") or ""
+        if statement.rstrip().endswith(";"):
+            issues.append((
+                "fail",
+                f"pages[{pi}].elements ({el.get('id')}, kind={el.get('kind')}): "
+                "sql source `statement` ends with a trailing `;` — Sigma wraps "
+                "it as a subquery, so this is invalid syntax on every "
+                "warehouse. Will silently pass verify-workbook.sh and only "
+                "fail live as \"warehouse error: query failed\". Strip the "
+                "trailing semicolon."
+            ))
+    return issues
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         sys.stderr.write("usage: validate-spec.py <spec.json>\n")
@@ -714,6 +749,7 @@ def main() -> None:
         ("summary-calc-collision",     lambda: issues_summary_calc_collision(spec)),
         ("description-object-on-kpi-and-table", lambda: issues_description_object_on_kpi_and_table(spec)),
         ("pivot-missing-rows-and-columns", lambda: issues_pivot_missing_rows_and_columns(spec)),
+        ("sql-source-trailing-semicolon", lambda: issues_sql_source_trailing_semicolon(spec)),
     ]:
         for level, msg in fn():
             all_issues.append((level, tag, msg))

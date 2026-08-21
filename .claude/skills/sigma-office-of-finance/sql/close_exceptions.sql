@@ -32,4 +32,4 @@ WITH accounts AS (
 SELECT account, exception_type, amount, days_open,
        CASE WHEN days_open > 5 THEN 'Aged' ELSE 'Current' END AS age_bucket
 FROM accounts
-ORDER BY days_open DESC;
+ORDER BY days_open DESC

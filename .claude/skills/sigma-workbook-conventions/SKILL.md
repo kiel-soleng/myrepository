@@ -443,7 +443,7 @@ mapping.
   wrapper.
 - `discover.md` — `mcp-search.sh` / `mcp-describe.sh` sequencing,
   REST fallbacks, friendly-vs-raw warehouse name normalization.
-- `validate.md` — `validate-spec.py` (pre-submit, 13 checks) +
+- `validate.md` — `validate-spec.py` (pre-submit, 14 checks) +
   `verify-workbook.sh` (post-create compilation check) + cryptic-error
   decoding table.
 - `from-image.md` — image-to-spec workflow (screenshot, mockup,

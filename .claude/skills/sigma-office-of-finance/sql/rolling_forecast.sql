@@ -37,4 +37,4 @@ SELECT
     ROUND(t.trailing_avg, 0) AS base_case   -- seeds the hidden Base Case column; Forecast Entry stays user-editable/blank
 FROM trailing t
 CROSS JOIN future_months fm
-ORDER BY fm.period_month, t.department;
+ORDER BY fm.period_month, t.department

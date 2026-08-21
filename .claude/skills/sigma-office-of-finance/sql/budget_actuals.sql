@@ -29,4 +29,4 @@ SELECT
                  ELSE 1.0 END, 0)                                                          AS "Actual Amount"
 FROM dept d
 CROSS JOIN months m
-ORDER BY m.period_month, d.department;
+ORDER BY m.period_month, d.department

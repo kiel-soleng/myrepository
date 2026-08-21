@@ -294,3 +294,44 @@ examples. They're not wrong for the checks that read them, but a human
 or agent copy-pasting from those examples will hit the exact POST
 failure this entry describes. Needs a pass to update every layout
 example in this skill to `<Element>`/`<Container>`.
+
+## 2026-08-21 — Trailing `;` on a `sql`-source `statement` fails silently past both validators
+
+The `sigma-office-of-finance` Page 1 workbook (see entry above) POSTed
+clean, passed `validate-spec.py`, and passed `verify-workbook.sh` (all
+13 elements "compile cleanly"). Opening it in the Sigma UI showed
+"warehouse error: query failed" on **every single element**.
+
+Root cause: all three `.sql` files shipped with the skill
+(`budget_actuals.sql`, `close_exceptions.sql`, `rolling_forecast.sql`)
+ended their final `SELECT` with a trailing `;`. A `kind: "sql"` source's
+`statement` gets wrapped by Sigma as a derived subquery —
+`select <cols> from (\n<statement>\n) Q1 limit 1000` — so the semicolon
+lands right before the closing paren, producing invalid syntax on
+every warehouse. Every element on the page sourced from one of the two
+tables built on that statement, so every element failed identically.
+
+Why neither validator caught it: `validate-spec.py` only ever inspected
+spec *structure*, never source-statement *content*, so there was no
+check that could have caught this. `verify-workbook.sh` fetches the
+*compiled* SQL and greps it for two specific formula-resolution markers
+(`Unknown column`, `Circular column reference`) — it never executes
+the query, so a syntactically-broken-but-formula-resolved statement
+reads as clean. This is exactly the gap `reference/workflows/crud.md`
+already warns about ("`verify` is weaker than `create`... does not
+resolve SQL, check connection health"), just not one anyone had hit
+with a concrete repro before.
+
+Fix: stripped the trailing `;` from all three `.sql` files. Documented
+the gotcha in `reference/specification/sources.md` → "sql — custom SQL
+query" (which, before this, had no real documentation for the `sql`
+source kind at all — it was one bullet in "Other source kinds" saying
+"model the shape off an existing spec"). Added a 14th `validate-spec.py`
+check, `sql-source-trailing-semicolon`, so this is now a pre-POST fail
+instead of something only the live UI catches. PUT the fix to the same
+workbook (`759ddb59-8b5c-4d80-a431-fe24773c483d`) rather than creating
+a duplicate.
+
+Rule going forward: **a `sql`-source `statement` must never end in a
+trailing `;`** — check this explicitly when hand-writing or reviewing
+any Custom SQL source, not just when the linter catches it.
