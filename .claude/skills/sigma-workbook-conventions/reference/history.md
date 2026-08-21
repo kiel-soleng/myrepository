@@ -254,3 +254,43 @@ Rules going forward:
   HTML stops triggering false positives.
 - `scripts/api/harvest-workbook.sh` → fail-fast on `service_error`
   responses with diagnostic message + cleanup of bogus spec.json.
+
+## 2026-08-21 — `document{}` envelope missing from this skill entirely
+
+A `sigma-office-of-finance` skill draft (ported in from a separate local
+checkout) built a spec against this skill's documented top-level shape
+(`{name, schemaVersion, folderId, pages, layout}`, elements nested per
+page, `<GridContainer>`/`<LayoutElement>` layout tags) and passed
+`validate-spec.py`'s 13 checks. POST failed with a ~54KB decode error
+whose every branch traced to path `0.document...` — the server expected
+a `document` envelope this skill had no record of at all.
+
+Root cause: `api.staging.sigmacomputing.io` moved everything but
+`name`/`folderId` inside a top-level `document` object as code
+representation went to public beta (verified independently on
+2026-08-07, per the file below) — `pages[].elements` was replaced by
+flat `document.elements` (page membership comes only from the layout
+XML), and `<LayoutElement>`/`<GridContainer>` were renamed to
+`<Element>`/`<Container>`. None of that had been folded into this
+skill's chunks; `validate-spec.py`'s checks all assumed the pre-envelope
+shape and would pass a spec that the live API rejects outright.
+
+Fix: ported `reference/schema-2026-08-breaking-changes.md` (the full
+verified diff — envelope, flat elements, tag renames, action-effect and
+control-shape gotchas, agents, reports) into this skill and added it to
+the "every build" required-reading row in SKILL.md. Patched
+`validate-spec.py` to normalize a `document`-enveloped spec into a
+single pseudo-page before running the existing 13 checks, and to accept
+both old and new layout tag names, so one script covers both schema
+generations. Two more real bugs surfaced along the way, now fixed in
+the ported draft: `kpi-chart.value` must be `{columnId}` not `{id}`,
+and the legacy `xAxis: {id}` / `yAxis: [{id}]` axis form no longer
+round-trips a POST — use `xAxis: {columnId}` / `yAxis: {columnIds}`.
+
+**Not yet done** (flagged, not fixed): `reference/specification/layout.md`
+and `reference/specification/example-full.yaml` still show the
+pre-rename `<GridContainer>`/`<LayoutElement>` tags in their worked
+examples. They're not wrong for the checks that read them, but a human
+or agent copy-pasting from those examples will hit the exact POST
+failure this entry describes. Needs a pass to update every layout
+example in this skill to `<Element>`/`<Container>`.

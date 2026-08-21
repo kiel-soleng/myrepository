@@ -17,6 +17,7 @@ workbooks/*/iterations/*.draft.json
 workbooks/*/
 !workbooks/_template/
 !workbooks/_exemplars/
+!workbooks/office-of-finance/
 
 # Per-user session walkthroughs (not part of the skill itself)
 docs/sessions/

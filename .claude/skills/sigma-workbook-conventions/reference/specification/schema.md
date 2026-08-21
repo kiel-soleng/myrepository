@@ -34,6 +34,14 @@ or a 400 about request *shape* rather than data — the API has evolved
 since this skill was written. Fallback in `reference/workflows/crud.md` →
 "Schema drift."
 
+**Confirmed live on `api.staging.sigmacomputing.io` 2026-08-21: read
+`reference/schema-2026-08-breaking-changes.md` FIRST if a POST fails.**
+It covers the `document{}` envelope below, flat `document.elements`,
+the `<Element>`/`<Container>` layout-tag renames, and several
+element-shape gotchas (`kpi-chart`'s `value.columnId` vs `value.id`,
+modern `xAxis`/`yAxis` axis form) — most POST-shape failures trace back
+to one of those, not to something new.
+
 This file covers what the OpenAPI alone won't tell you: which fields are
 response-only, the ID-preservation guarantee on CREATE, and a minimal
 working example. For per-element shapes, see the per-element files in
@@ -41,19 +49,35 @@ this directory.
 
 ## Top-level object
 
+**As of 2026-08, everything but `name`/`folderId` moved inside a
+`document` envelope** — see `reference/schema-2026-08-breaking-changes.md`
+→ "The `document{}` envelope" for the full shape, including why
+`document.pages[].elements` no longer works (elements are flat on
+`document.elements`; page membership comes only from the layout XML).
+
 ```json
 {
   "name": "My Workbook",
   "folderId": "<folder-uuid>",
-  "description": "Optional description",
-  "schemaVersion": 1,
-  "pages": [...],
-  "layout": "<?xml version=\"1.0\" encoding=\"utf-8\"?>...</Page>..."
+  "document": {
+    "schemaVersion": 1,
+    "kind": "workbook",
+    "description": "Optional description",
+    "elements": [...],
+    "pages": [{ "id": "pg1", "name": "Overview" }],
+    "layout": "<?xml version=\"1.0\" encoding=\"utf-8\"?>...</Page>..."
+  }
 }
 ```
 
-**Required:** `name`, `folderId`, `schemaVersion`, `pages`.
-**Optional:** `description`, `layout`.
+**Required (top level):** `name`, `folderId`, `document`.
+**Required (inside `document`):** `schemaVersion`, `kind`, `pages`.
+**Optional (inside `document`):** `description`, `elements`, `layout`,
+`overlays`, `agents`, `settings`.
+
+The pre-2026-08 flat shape (`schemaVersion`/`pages[].elements`/`layout`
+all at the top level, no `document` wrapper) is what older exemplars in
+this repo still use — don't copy it for new builds.
 
 See `reference/workflows/crud.md` → "schemaVersion — don't hardcode"
 for the rule on `schemaVersion`. Existing exemplars use `1`; future

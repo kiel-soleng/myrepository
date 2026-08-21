@@ -200,7 +200,7 @@ session and cite chunk + section in the plan.
 
 | Task type | Required chunks |
 |---|---|
-| Every build (always) | `reference/conventions.md` + `reference/workflows/plan.md` + `reference/specification/schema.md` + `reference/specification/layout.md` |
+| Every build (always) | `reference/conventions.md` + `reference/workflows/plan.md` + `reference/specification/schema.md` + `reference/specification/layout.md` + `reference/schema-2026-08-breaking-changes.md` |
 | Viz-heavy build (>2 chart kinds, KPI rows, pivots) | + each `reference/specification/<kind>.md` for the kinds in the plan (`charts.md`, `kpis.md`, `tables.md`, etc.) |
 | Formula-heavy build (custom calcs, metrics, Lookup, Rollup) | + `reference/specification/formulas.md` |
 | Conditional-formatting build (table/pivot cell coloring) | + `reference/specification/tables.md` |
@@ -423,6 +423,16 @@ mapping.
   and the incident that surfaced it.
 - `reference/naming.md` — naming rubric (columns, metrics, controls,
   pages) — style guide, not load-bearing.
+- `reference/schema-2026-08-breaking-changes.md` — the `document{}`
+  envelope (only `name`/`folderId` stay at the top level; everything
+  else, including `pages`/`layout`, moved inside `document`), flat
+  `document.elements` (page membership comes only from the layout XML
+  now), the `<LayoutElement>`→`<Element>` / `<GridContainer>`→`<Container>`
+  tag renames, and per-kind gotchas (`kpi-chart`'s `value.columnId`,
+  modern `xAxis`/`yAxis` form). Confirmed live against
+  `api.staging.sigmacomputing.io` on 2026-08-21. **Required on every
+  build** — a spec built to the older flat shape is rejected outright,
+  not just missing new fields.
 
 **Workflow files (`reference/workflows/`):**
 

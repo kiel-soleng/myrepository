@@ -90,7 +90,9 @@ def issues_elements_placed(spec: dict, root: ET.Element | None) -> list[tuple[st
     placed_ids = {
         el.get("elementId")
         for el in root.iter()
-        if el.tag in ("LayoutElement", "GridContainer")
+        # Element/Container are the 2026-08 schema's renames of the older
+        # LayoutElement/GridContainer tags — accept both.
+        if el.tag in ("LayoutElement", "GridContainer", "Element", "Container")
     }
     issues = []
     for pi, p in enumerate(spec.get("pages", [])):
@@ -116,17 +118,21 @@ def issues_containers_have_children(spec: dict, root: ET.Element | None) -> list
     ]
     issues = []
     for cid in container_ids:
-        gc = next((el for el in root.iter("GridContainer") if el.get("elementId") == cid), None)
+        gc = next(
+            (el for tag in ("GridContainer", "Container") for el in root.iter(tag)
+             if el.get("elementId") == cid),
+            None,
+        )
         if gc is None:
             issues.append((
                 "fail",
-                f"container element `{cid}`: no matching <GridContainer> in layout XML."
+                f"container element `{cid}`: no matching <Container>/<GridContainer> in layout XML."
             ))
         elif len(list(gc)) == 0:
             issues.append((
                 "fail",
-                f"container element `{cid}`: <GridContainer> has no nested children. "
-                "Children must be nested INSIDE the <GridContainer>, not flat siblings."
+                f"container element `{cid}`: <Container>/<GridContainer> has no nested children. "
+                "Children must be nested INSIDE the container, not flat siblings."
             ))
     return issues
 
@@ -674,6 +680,22 @@ def main() -> None:
         sys.exit(2)
     with open(sys.argv[1]) as f:
         spec = json.load(f)
+
+    # 2026-08 schema: everything but `name`/`folderId` moved under a
+    # `document` envelope, and elements are flat on document.elements
+    # instead of nested per-page (see reference/schema-2026-08-breaking-
+    # changes.md). Normalize to a single pseudo-page holding every element
+    # so the checks below — all written against the pre-envelope shape —
+    # still see a consistent (page, elements) view. Page-scoped uniqueness
+    # becomes document-wide, which is the correct (stricter) semantics now
+    # that elements aren't actually page-owned.
+    if "document" in spec:
+        doc = spec["document"]
+        spec = {
+            **spec,
+            "layout": doc.get("layout", ""),
+            "pages": [{"id": "__all__", "name": "__all__", "elements": doc.get("elements", [])}],
+        }
 
     root = _parse_layout(spec.get("layout", ""))
 
