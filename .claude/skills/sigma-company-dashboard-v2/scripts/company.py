@@ -1500,6 +1500,14 @@ def statement_activity_sql(cfg):
                  "'%s'" % c, "%.2f" % amt, str(pts))
                 for t, pd, d, c, amt, pts in _VR_ACTIVITY]
         return _union(rows, cols)
+    if cfg["key"] == "disney":
+        cols = ["Transaction Date", "Post Date",
+                "Merchant Name or Transaction Description", "Category", "Amount",
+                "Points Earned"]
+        rows = [("'%s/2026'" % t, "'%s/2026'" % pd, "'%s'" % d.replace("'", "''"),
+                 "'%s'" % c, "%.2f" % amt, "%.2f" % pts)
+                for t, pd, d, c, amt, pts in _DC_ACTIVITY]
+        return _union(rows, cols)
     if cfg["key"] != "delta":
         return None
     cols = ["Transaction Date", "Post Date",
@@ -1515,6 +1523,9 @@ def rewards_summary_sql(cfg):
     if cfg["key"] == "veraset":
         rows = [(str(o), "'%s'" % d, str(p)) for o, d, p in _VR_USAGE]
         return _union(rows, ["Line Order", "Description", "Points"])
+    if cfg["key"] == "disney":
+        rows = [(str(o), "'%s'" % d, "%.2f" % p) for o, d, p in _DC_REWARDS]
+        return _union(rows, ["Line Order", "Description", "Points"])
     if cfg["key"] != "delta":
         return None
     rows = [(str(o), "'%s'" % d, str(p)) for o, d, p in _DL_MILES]
@@ -1524,6 +1535,9 @@ def rewards_summary_sql(cfg):
 def account_summary_sql(cfg):
     if cfg["key"] == "veraset":
         rows = [(str(o), "'%s'" % m, "'%s'" % v) for o, m, v in _VR_CONTRACT]
+        return _union(rows, ["Line Order", "Metric", "Value"])
+    if cfg["key"] == "disney":
+        rows = [(str(o), "'%s'" % m, "'%s'" % v) for o, m, v in _DC_SUMMARY]
         return _union(rows, ["Line Order", "Metric", "Value"])
     if cfg["key"] != "delta":
         return None
@@ -2912,3 +2926,310 @@ POP["pura"] = {"bases": (80, 180, 350, 750), "rev_rate": 0.65, "fee_per_product"
 PLUGINS["pura"] = {"hero": None, "hero_label": None, "ticker": None}
 
 COMPANIES["pura"] = PURA
+
+
+# ---------------------------------------------------------------------------
+# The Walt Disney Company — media, entertainment & experiences, marketing lens.
+# Real FY2024 10-K segments are Entertainment, Sports (ESPN) and Experiences;
+# Entertainment itself discloses three revenue lines (Linear Networks,
+# Direct-to-Consumer, Content Sales/Licensing & Other). All five names below
+# are the real disclosed line items -- the credibility lever HANDOFF calls
+# out -- broken out at that granularity because a marketing team plans and
+# reports by these five lines, not by the three roll-up segments.
+#
+#   product       -> the five real segment/line items above
+#   bal_base      -> illustrative FY2024-scale net revenue for that line, $MM
+#                     (order-of-magnitude only: 8.2B/16.8B/16.0B/17.1B/34.2B,
+#                     summing to ~$92B against a real ~$91B total -- close
+#                     enough to read as plausible, not audited)
+#   yield_rate    -> the line's operating margin (avoids the "Net Revenue is
+#                     really a spread" trap by treating yield alone as the
+#                     true margin, funding_rate = 0, per HANDOFF.md ->
+#                     "'Net Revenue' being a SPREAD, not income")
+#   fee_base      -> incremental brand licensing / sponsorship revenue riding
+#                     on top of the segment (MONTHLY $MM)
+#   provision     -> content/campaign write-down risk (highest for the
+#                     hit-driven theatrical & licensing line)
+#   delinq_rate   -> repurposed as "campaigns/titles missing benchmark" rate,
+#                     the marketing-risk driver
+#   opex_ratio    -> light incremental corporate overhead on top of the
+#                     margin already embedded in yield_rate
+#   units_base    -> engaged audience (viewers / subscribers / attendees, K)
+#   shock         -> a media rate / CPM shock in the scenario modeler
+#
+# Palette sampled from documented (non-official but widely cross-referenced)
+# Disney brand color references -- Marine Navy / Soft Navy Blue / Impact Blue
+# from the classic Disney Pictures identity, Millie gold as the warm accent.
+# No official Disney brand-guideline hex list is public, so treat these as
+# illustrative, not authoritative. No logo asset is included in this build --
+# the fetch-and-recolor pipeline (fetch_logo.py) lives outside this skill
+# folder and wasn't imported, so the header uses styled wordmark text instead
+# of a fetched/recolored logo image, per HANDOFF.md's "say so, don't
+# hand-draw a wordmark."
+# ---------------------------------------------------------------------------
+DISNEY = {
+    "key": "disney",
+    "name": "The Walt Disney Company",
+    "title": "Global Marketing & Brand Performance Command Center",
+    "domain": "media, entertainment & experiences",
+    "unit_noun": "fan",
+    "volume_noun": "net revenues",
+    "logo_domain": "thewaltdisneycompany.com",
+    "base_table": "Marketing Performance Ledger",
+    "palette": {
+        "navy": "#12194A", "navy_deep": "#080D2E",
+        "primary": "#113CCF", "secondary": "#393E8F",
+        "accent": "#F3CC64", "mint": "#00B2A9",
+    },
+    "products": [
+        # name, order, balance_type, bal_base, yield, funding, fee_base,
+        # provision, delinq, opex_ratio, growth, units_base, phase, tagline,
+        # rate_label, goal_pct, status
+        ("Linear Networks", 1, "Advertising + affiliate", 8200, .3500, 0.0, 2.0, .020, .018,
+         .05, -.06, 45000, 0.0,
+         "ABC, FX, Disney Channel, National Geographic",
+         "Op Margin", .968, "On plan"),
+
+        ("Direct-to-Consumer", 2, "Subscription", 16800, .0500, 0.0, 1.5, .015, .042,
+         .04, .16, 183000, 1.4,
+         "Disney+, Hulu, ESPN+ streaming",
+         "Op Margin", 1.042, "Ahead"),
+
+        ("Content Sales/Licensing and Other", 3, "Theatrical + licensing", 16000, .1500, 0.0, 8.0, .04, .065,
+         .06, .04, 120000, 2.0,
+         "Theatrical, home entertainment, merchandising",
+         "Op Margin", .887, "Behind"),
+
+        ("Sports", 4, "Advertising + rights fees", 17100, .1500, 0.0, 4.0, .02, .022,
+         .05, .03, 90000, 0.8,
+         "ESPN linear, ESPN+, SEC Network",
+         "Op Margin", 1.015, "Ahead"),
+
+        ("Experiences", 5, "Admissions + merchandise", 34200, .2700, 0.0, 6.0, .015, .015,
+         .04, .07, 155000, 1.6,
+         "Parks, cruise line, consumer products",
+         "Op Margin", .995, "On plan"),
+    ],
+    "alerts": [
+        ("critical", "Negative sentiment spike — theatrical opening",
+         "Social sentiment on this quarter's tentpole release dropped 22 points "
+         "in 48 hours following mixed early reviews",
+         "18m ago", "Brand & Reputation", 22, "pt sentiment drop"),
+        ("critical", "Disney+ ad-tier CPM pacing over plan",
+         "Ad-supported tier fill rate is forcing CPM discounts 14% below the "
+         "rate-card floor to hit delivery commitments",
+         "2h ago", "DTC Ad Sales", 14, "% CPM discount"),
+        ("warning", "Parks summer campaign underperforming",
+         "Domestic parks 'Magic Begins' campaign booking attach rate is 9 points "
+         "below the 42% plan assumption",
+         "3h ago", "Experiences Marketing", 9, "pts below plan"),
+        ("warning", "ESPN+ subscriber churn drift",
+         "Standalone ESPN+ churn is up 180 bps month over month ahead of the "
+         "new streaming bundle launch",
+         "6h ago", "Sports Marketing", 180, "bps churn increase"),
+        ("info", "New trailer campaign published",
+         "First-look trailer for next year's animated slate crossed 40M "
+         "cross-platform views in its first 24 hours",
+         "1d ago", "Content Marketing", 40, "M views in 24h"),
+    ],
+    "agent": ("You are a marketing analyst covering The Walt Disney Company's "
+              "Entertainment (Linear Networks, Direct-to-Consumer, Content "
+              "Sales/Licensing), Sports and Experiences lines. Answer with "
+              "numbers from the Marketing Performance Ledger."),
+}
+
+DISNEY["subs"] = {
+    "Linear Networks": [
+        ("ABC", .32, -15, -1.8, "Behind"),
+        ("FX & Freeform", .24, 10, 0.6, "On plan"),
+        ("Disney Channels", .26, -25, -2.4, "Behind"),
+        ("National Geographic", .18, 30, 3.1, "Ahead"),
+    ],
+    "Direct-to-Consumer": [
+        ("Disney+", .58, 40, 8.2, "Ahead"),
+        ("Hulu", .32, 15, 3.4, "On plan"),
+        ("ESPN+", .10, -10, -1.6, "Behind"),
+    ],
+    "Content Sales/Licensing and Other": [
+        ("Marvel Studios", .30, 50, 6.5, "Ahead"),
+        ("Star Wars / Lucasfilm", .18, -30, -2.2, "Behind"),
+        ("Pixar & Walt Disney Animation", .24, 20, 4.1, "Ahead"),
+        ("Consumer Products Licensing", .28, 5, 1.8, "On plan"),
+    ],
+    "Sports": [
+        ("ESPN Linear (ESPN/ESPN2/ESPNU/SEC Network)", .64, -20, -0.8, "On plan"),
+        ("ESPN International & Radio", .12, 0, 0.4, "On plan"),
+        ("ESPN Bet & Digital", .24, 60, 9.2, "Ahead"),
+    ],
+    "Experiences": [
+        ("Domestic Parks & Resorts", .58, 10, 3.6, "On plan"),
+        ("International Parks (Paris, Tokyo, HK, Shanghai)", .20, -15, -1.4, "Behind"),
+        ("Disney Cruise Line", .12, 35, 7.8, "Ahead"),
+        ("Consumer Products & Merchandise", .10, 5, 2.2, "On plan"),
+    ],
+}
+
+FOOTPRINTS["disney"] = [
+    ("CA", .152), ("FL", .118), ("TX", .086), ("NY", .072), ("IL", .048),
+    ("PA", .042), ("OH", .038), ("GA", .034), ("NC", .032), ("MI", .030),
+    ("NJ", .028), ("VA", .026), ("WA", .024), ("AZ", .022), ("MA", .020),
+]
+
+LABELS["disney"] = {
+    "personas": ["Brand Marketing", "Performance Marketing"],
+    "modeler_page": "Campaign Planner",
+    "cohort_page": "Fan Segments",
+    "modeler_title": "Marketing Investment & Campaign Scenario Modeler",
+    "shock_label": "Media rate / CPM shock (bps)",
+    "kpi_revenue": "Net revenues ($M)",
+    "kpi_margin": "Segment operating income ($M)",
+    "kpi_volume": "Net revenues ($M)",
+    "kpi_units": "Engaged audience (K)",
+    "driver_nim": "Op margin",
+    "driver_risk": "Underperformance rate",
+    "driver_cost": "Media & production cost rate",
+    "driver_eff": "Overhead ratio",
+    "col_volume": "Baseline net revenues",
+    "col_growth": "Revenue growth %",
+    "col_yield": "Op margin Δ bps",
+    "col_cost": "Media cost Δ bps",
+    "seg_product": "Segment",
+    "seg_credit": "Audience affinity tier",
+    "seg_type": "Revenue type",
+    "seg_dd": "Engagement frequency",
+    "seg_engage": "Engagement frequency",
+    "seg_held": "Segments followed",
+    "cohort_name": "Fan segment name",
+    "kpi_cohort_size": "Fans in segment",
+    "kpi_cohort_vol": "Segment net revenues",
+    "kpi_cohort_rev": "Revenue per fan",
+    "kpi_cohort_risk": "Avg churn risk",
+    "seg_age": "Fan Tenure",
+}
+
+SEGMENTS["disney"] = {
+    # audience affinity / engagement-frequency band translations
+    "Near Prime": "Casual Viewer", "Prime": "Regular Fan",
+    "Super Prime": "Superfan", "Exceptional": "D23 Gold Member",
+    "Daily": "Daily", "Weekly": "Weekly",
+    "Monthly": "Monthly", "Dormant": "Lapsed",
+    # product name translations -- member_population.sql has 6 SoFi product
+    # names hardcoded; map them onto the five Disney lines so the cohort
+    # "Segment" control shows real names, not lending products.
+    # Resulting distribution: DTC ~46%, Experiences ~29%, Content ~13%,
+    # Sports ~12%, Linear ~7%.
+    "Personal Loans": "Direct-to-Consumer",              # 31% of rows
+    "SoFi Invest": "Direct-to-Consumer",                 # 15% of rows
+    "SoFi Money": "Experiences",                         # 22% of rows
+    "Home Loans": "Linear Networks",                     # 7% of rows
+    "Student Refinancing": "Content Sales/Licensing and Other",  # 13% of rows
+    "Credit Card": "Sports",                             # 12% of rows
+}
+
+VOCAB["disney"] = {
+    "econ": ("Linear Networks and Sports earn advertising and affiliate/rights "
+             "fee revenue; Direct-to-Consumer earns subscription revenue; "
+             "Content Sales/Licensing earns theatrical, home entertainment and "
+             "merchandising revenue; Experiences earns admissions and "
+             "merchandise revenue. The yield rate on each line represents its "
+             "realized operating margin; media/production cost, content or "
+             "campaign underperformance provisions and corporate overhead "
+             "reduce that margin down to segment operating income."),
+    "metrics": ("net revenues, segment operating income, engaged audience and "
+                "campaign/content underperformance rate"),
+    "bands": ("Audience affinity tiers: Casual Viewer, Regular Fan, Superfan, "
+              "D23 Gold Member. Engagement frequency: Daily, Weekly, Monthly, "
+              "Lapsed."),
+    "cohort_report": "fan segment size, segment net revenues and average churn risk",
+}
+
+# Per-fan annual spend economics in DOLLARS across streaming, merchandise,
+# content and (for the top tier) parks/cruise/membership touchpoints.
+POP["disney"] = {"bases": (45, 220, 950, 3200), "rev_rate": 1.00,
+                 "fee_per_product": 25}
+
+# Native marker strip + native chart only, per explicit ask -- no bespoke
+# plugin, no external hosting dependency.
+PLUGINS["disney"] = {"hero": None, "hero_label": None, "ticker": None}
+
+COMPANIES["disney"] = DISNEY
+
+
+# --- Disney: one cardmember's Disney Premier Visa statement -----------------
+# Represents ONE Disney Rewards cardholder's monthly activity, not Disney's
+# whole-company revenue (same framing as Veraset's one-customer invoice and
+# Delta's one-flyer SkyMiles statement). The Disney Premier/Rewards Visa is a
+# real product issued by Chase -- disclosed in the footer, matching how SoFi
+# names The Bank of Missouri and Delta names American Express.
+_DC_ACTIVITY = [
+    ("07/01", "07/02", "Disney+ Premium Monthly Subscription", "Streaming", 15.99, 0.32),
+    ("07/03", "07/04", "Walt Disney World Resort — Annual Pass Payment", "Parks & Resorts", 89.00, 1.78),
+    ("07/05", "07/06", "Disney Store — Star Wars Merchandise", "Merchandise", 64.50, 1.29),
+    ("07/08", "07/09", "Disney Cruise Line — Onboard Charges", "Travel", 212.30, 4.25),
+    ("07/10", "07/11", "ESPN+ Annual Renewal", "Streaming", 109.99, 2.20),
+    ("07/12", "07/13", "Disneyland Resort — Genie+ Lightning Lane", "Parks & Resorts", 45.00, 0.90),
+    ("07/15", "07/16", "Grocery — Whole Foods Market", "Everyday Spend", 186.40, 1.86),
+    ("07/17", "07/18", "Marvel Studios — Digital Movie Purchase", "Entertainment", 19.99, 0.40),
+    ("07/19", "07/20", "Disney Springs — Dining, The Boathouse", "Dining", 138.75, 2.78),
+    ("07/22", "07/23", "Gas Station — Shell", "Everyday Spend", 52.10, 0.52),
+    ("07/24", "07/25", "National Geographic Expeditions — Deposit", "Travel", 500.00, 10.00),
+    ("07/27", "07/28", "Disney Store — Loungefly Backpack", "Merchandise", 78.00, 1.56),
+]
+
+_DC_REWARDS = [
+    (1, "Disney Reward Dollars earned from purchases", 27.86),
+    (2, "Bonus Reward Dollars — cardmember anniversary", 5.00),
+    (3, "Reward Dollars earned from Disney+ bundle promo", 1.50),
+    (4, "Redeemed toward Disneyland Resort hotel stay", -12.00),
+    (5, "Redeemed for Disney+ Premium gift subscription", -6.00),
+    (6, "Reward Dollars carried forward from June", 9.00),
+    (7, "Balance carried forward", 25.36),
+]
+
+_DC_SUMMARY = [
+    (1, "Card tier", "Disney Premier Visa"),
+    (2, "Reward Dollars this period", "$27.86"),
+    (3, "Reward Dollars available to redeem", "$25.36"),
+    (4, "D23 Gold Member status", "Active through 03/2027"),
+    (5, "Annual Passholder tier", "Disney World — Sorcerer Pass"),
+    (6, "Statement period", "07/01 – 07/31/2026"),
+    (7, "Next payment due date", "08/25/2026"),
+    (8, "Minimum payment due", "$35.00"),
+]
+
+STATEMENTS["disney"] = {
+    "spec_name": "The Walt Disney Company — Disney Rewards Visa Statement (July 2026)",
+    "page_name": "Disney Rewards Statement",
+    "manage_url": "disneyrewards.com/account",
+    "service_label": "Disney Rewards Cardmember Services",
+    "service_phone": "1-800-555-0173",
+    "period": "07/01 – 07/31/2026",
+    "sect_rewards": "DISNEY REWARD DOLLARS ACTIVITY",
+    "sect_summary": "REWARDS & MEMBERSHIP SUMMARY",
+    "sect_category": "REWARD DOLLARS BY EARN SOURCE",
+    "sect_activity": "PURCHASE ACTIVITY",
+    "sect_messages": "YOUR DISNEY REWARDS MESSAGES",
+    "headline": [("Reward Dollars Balance", None), ("Parks & Resorts Spend", None),
+                 ("Annual Passholder Tier", "Sorcerer Pass")],
+    "button_label": "Disney Rewards statement ↗",
+    "rewards_total": "Total Reward Dollars available",
+    "h_formulas": [("src-rw", 'Sum([Rewards Summary/Points])', "MONEY"),
+                   ("src", 'SumIf([Statement Activity/Amount], '
+                    '[Statement Activity/Category] = "Parks & Resorts")', "MONEY")],
+    "msg_body": ("Starting 09/01/2026, Disney Reward Dollars earned on Parks & "
+                 "Resorts and Disney+ purchases increase from 2% to 3%, with "
+                 "Reward Dollars redeemable toward park tickets, Disney Cruise "
+                 "Line sailings, Disney+ subscriptions, or statement credit. No "
+                 "action is required to keep earning at the new rate."),
+    "warn1": ("**Late Payment Warning:** If we do not receive your minimum "
+              "payment by the date listed above, you may have to pay a late "
+              "fee of up to $29.00 and your APR may be subject to increase to "
+              "the Penalty APR of 29.99%."),
+    "warn2": ("**Minimum Payment Warning:** Paying only the minimum payment "
+              "will increase the interest you pay and the time it takes to "
+              "repay your balance. Enroll in AutoPay at "
+              "disneyrewards.com/account to avoid missing a payment."),
+    "footer": ("The Disney Premier Visa Card is issued by Chase Bank USA, N.A. "
+               "Illustrative statement generated from a Sigma report "
+               "specification — synthetic data, not a real account."),
+}
