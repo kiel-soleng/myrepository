@@ -97,3 +97,47 @@ def title_body(text, subtitle=None, color=WHITE):
     if subtitle:
         body += f'\n\n<p class="p-small"><span style="color: {color}">{subtitle}</span></p>'
     return body
+
+
+def cols(names, prefix, formats=None):
+    """Passthrough-column declarations for a Custom SQL table's own
+    `columns` array — i.e. for use ONLY on the element that IS the SQL
+    source (self-reference via the implicit `[Custom SQL/<name>]` prefix).
+    Downstream elements referencing these columns must use
+    `[<source-table's declared name>/<name>]` instead — see
+    reference/history.md -> 2026-08-24 ("wrong cross-element prefix").
+
+    formats: optional {column_name: format_dict} to apply a display format
+    to specific columns (e.g. a date column, so a control sourced from it
+    doesn't show a raw timestamp — reference/history.md -> 2026-08-24).
+    """
+    formats = formats or {}
+    out = []
+    for i, n in enumerate(names):
+        col = {"id": f"{prefix}{i}", "formula": f'[Custom SQL/{n}]', "name": n}
+        if n in formats:
+            col["format"] = formats[n]
+        out.append(col)
+    return out
+
+
+def passthrough_cols(names, prefix, source_name, formats=None):
+    """Passthrough-column declarations for a DOWNSTREAM element (a chart,
+    table, or pivot sourced FROM a Custom SQL table via `{"kind": "table",
+    "elementId": ...}`), copying the full source column set for
+    drill-down per the passthrough mandate.
+
+    Unlike `cols()`, this uses the source table's own declared `name` as
+    the cross-element prefix, not the bare `[Custom SQL/...]` self-
+    reference — using the bare form here is exactly the bug documented in
+    reference/history.md -> 2026-08-24: it silently collapses every row
+    to a single blank/null value instead of raising a POST error.
+    """
+    formats = formats or {}
+    out = []
+    for i, n in enumerate(names):
+        col = {"id": f"{prefix}{i}", "formula": f'[{source_name}/{n}]', "name": n}
+        if n in formats:
+            col["format"] = formats[n]
+        out.append(col)
+    return out

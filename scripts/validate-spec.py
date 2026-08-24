@@ -41,6 +41,7 @@ CHECKS = [
     "description-object-on-kpi-and-table",
     "pivot-missing-rows-and-columns",
     "sql-source-trailing-semicolon",
+    "custom-sql-prefix-off-source",
 ]
 
 
@@ -416,6 +417,49 @@ def issues_bare_ref_resolution(spec: dict) -> list[tuple[str, str]]:
     return issues
 
 
+def issues_custom_sql_prefix_off_source(spec: dict) -> list[tuple[str, str]]:
+    """Fail-level: `[Custom SQL/<col>]` used on an element that is NOT
+    itself the `kind: "sql"` source.
+
+    `[Custom SQL/<col>]` is an implicit self-reference to a Custom-SQL
+    table's own raw output — valid ONLY inside the `columns[]` of the
+    element whose `source.kind == "sql"`. Every other element (a chart,
+    table, or pivot sourced FROM that table via `{"kind": "table",
+    "elementId": ...}`) must use the source table's own declared `name`
+    as the prefix instead, e.g. `[Budget vs. Actual (Custom SQL)/Department]`.
+
+    Using the bare `[Custom SQL/...]` prefix on a downstream element does
+    NOT raise a POST or verify-workbook.sh error — Sum()-wrapped measure
+    formulas silently compute the correct GRAND TOTAL anyway, but any bare
+    (non-aggregated) dimension/passthrough column collapses to a single
+    blank/null value, and a plain (non-aggregating) table's columns come
+    back entirely blank. The bug is invisible until you look at the
+    actual rendered rows. Verified live 2026-08-24 — see
+    `reference/history.md` for the full incident (it silently broke
+    Page 1's department breakdown, a P&L statement pivot, and a General
+    Ledger detail table, all at once, all using the exact same mistake).
+    """
+    issues = []
+    for pi, el in _all_elements(spec):
+        src = el.get("source") or {}
+        if src.get("kind") == "sql":
+            continue  # this element IS the Custom SQL source — self-ref is correct
+        for col in el.get("columns") or []:
+            formula = col.get("formula") or ""
+            if "[Custom SQL/" in formula:
+                issues.append((
+                    "fail",
+                    f"pages[{pi}].elements ({el.get('id')}, kind={el.get('kind')}) / "
+                    f"column '{col.get('name') or col.get('id')}': uses the bare "
+                    f"[Custom SQL/...] self-reference prefix, but this element's own "
+                    f"source is {src!r}, not a sql source — it must reference the "
+                    f"actual source table's declared `name` instead (e.g. "
+                    f"[<source-table-name>/{formula.split('Custom SQL/', 1)[1].rstrip(']')}"
+                    "...]). Formula: " + formula
+                ))
+    return issues
+
+
 def issues_control_filter_column_exists(spec: dict) -> list[tuple[str, str]]:
     """Verify each control.filters[].columnId exists on the target element.
 
@@ -750,6 +794,7 @@ def main() -> None:
         ("description-object-on-kpi-and-table", lambda: issues_description_object_on_kpi_and_table(spec)),
         ("pivot-missing-rows-and-columns", lambda: issues_pivot_missing_rows_and_columns(spec)),
         ("sql-source-trailing-semicolon", lambda: issues_sql_source_trailing_semicolon(spec)),
+        ("custom-sql-prefix-off-source", lambda: issues_custom_sql_prefix_off_source(spec)),
     ]:
         for level, msg in fn():
             all_issues.append((level, tag, msg))

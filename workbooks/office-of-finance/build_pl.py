@@ -8,11 +8,8 @@ CONN_SNOWFLAKE = "a9d45cfe-ff65-4515-8193-a7072602a1ee"
 FOLDER_ID = "6dfa8584-aa74-4de6-99cb-ecbbbba668ac"
 
 BASE_COLS = ["Period Month", "Line Order", "Section", "Line Item", "Amount"]
-
-
-def cols(names, prefix):
-    return [{"id": f"{prefix}{i}", "formula": f'[Custom SQL/{n}]', "name": n}
-            for i, n in enumerate(names)]
+COL_FORMATS = {"Period Month": style.MONTH_FMT}
+cols = style.cols
 
 
 def build_page():
@@ -30,7 +27,7 @@ def build_page():
         "kind": "table",
         "name": "P&L Statement (Custom SQL)",
         "source": {"connectionId": CONN_SNOWFLAKE, "kind": "sql", "statement": sql_text},
-        "columns": cols(BASE_COLS, "pl-col-"),
+        "columns": cols(BASE_COLS, "pl-col-", COL_FORMATS),
     })
     COL_PERIOD = "pl-col-0"
 
@@ -40,7 +37,7 @@ def build_page():
         "kind": "table",
         "name": "P&L Statement — Trend (Custom SQL)",
         "source": {"connectionId": CONN_SNOWFLAKE, "kind": "sql", "statement": sql_text},
-        "columns": cols(BASE_COLS, "pl-trend-col-"),
+        "columns": cols(BASE_COLS, "pl-trend-col-", COL_FORMATS),
     })
 
     # ---- Header: title + fiscal-period control ----
@@ -93,10 +90,10 @@ def build_page():
     # label rename, and avoids a live 403 (Cloudflare-level, not the Sigma
     # API itself) that repeated `[Col] = "text"` comparisons next to the
     # embedded SQL's own SELECT/UNION text triggered — confirmed 2026-08-24.
-    revenue_expr = 'SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 1)'
-    gross_profit_expr = 'SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 3)'
-    op_income_expr = 'SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 8)'
-    net_income_expr = 'SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 10)'
+    revenue_expr = 'SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 1)'
+    gross_profit_expr = 'SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 3)'
+    op_income_expr = 'SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 8)'
+    net_income_expr = 'SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 10)'
 
     kpi_revenue_id = kpi("pl-kpi-revenue", "Revenue", revenue_expr, accent=True)
     kpi_gm_id = kpi("pl-kpi-gross-margin", "Gross Margin %",
@@ -105,21 +102,24 @@ def build_page():
                      f'({op_income_expr}) / ({revenue_expr})', value_format=style.PERCENT_FMT)
     kpi_ni_id = kpi("pl-kpi-net-income", "Net Income", net_income_expr)
 
-    # ---- P&L statement pivot — rows sorted by the explicit Line Order
-    # column (plain tables have no row-sort field; pivots do, via
-    # rowsBy[].sort — reference/specification/tables.md "Shape").
+    # ---- P&L statement pivot — Line Item text is pre-sorted (numeric
+    # prefix baked into sql/pl_statement.sql) so the pivot's own default
+    # row order is correct. A `rowsBy[].sort` pointing at a separate
+    # Line Order column looked documented but silently dropped the
+    # rowsBy binding entirely live — pivot rendered a single collapsed
+    # "grand total" row with a blank label instead of 10 line items
+    # (see reference/history.md -> 2026-08-24). Don't reintroduce it.
     pivot_id = add({
         "id": "pivot-pl-statement",
         "kind": "pivot-table",
         "name": "P&L Statement",
         "source": {"kind": "table", "elementId": tbl_id},
         "columns": [
-            {"id": "piv-line-item", "name": "Line Item", "formula": "[Custom SQL/Line Item]"},
-            {"id": "piv-line-order", "name": "Line Order", "formula": "[Custom SQL/Line Order]"},
-            {"id": "piv-amount", "name": "Amount", "formula": "Sum([Custom SQL/Amount])",
+            {"id": "piv-line-item", "name": "Line Item", "formula": "[P&L Statement (Custom SQL)/Line Item]"},
+            {"id": "piv-amount", "name": "Amount", "formula": "Sum([P&L Statement (Custom SQL)/Amount])",
              "format": style.CURRENCY_FULL_FMT},
         ],
-        "rowsBy": [{"id": "piv-line-item", "sort": {"by": "piv-line-order", "direction": "ascending"}}],
+        "rowsBy": [{"id": "piv-line-item"}],
         "columnsBy": [],
         "values": ["piv-amount"],
     })
@@ -131,12 +131,12 @@ def build_page():
         "name": "Net Income — Trailing 12 Months",
         "source": {"kind": "table", "elementId": tbl_trend_id},
         "columns": [
-            {"id": "tr-month", "name": "Month", "formula": "[Custom SQL/Period Month]", "format": style.MONTH_FMT},
+            {"id": "tr-month", "name": "Month", "formula": "[P&L Statement — Trend (Custom SQL)/Period Month]", "format": style.MONTH_FMT},
             {"id": "tr-net-income", "name": "Net Income",
-             "formula": 'SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 10)',
+             "formula": 'SumIf([P&L Statement — Trend (Custom SQL)/Amount], [P&L Statement — Trend (Custom SQL)/Line Order] = 10)',
              "format": style.CURRENCY_FMT},
             {"id": "tr-revenue", "name": "Revenue",
-             "formula": 'SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 1)',
+             "formula": 'SumIf([P&L Statement — Trend (Custom SQL)/Amount], [P&L Statement — Trend (Custom SQL)/Line Order] = 1)',
              "format": style.CURRENCY_FMT},
         ],
         "xAxis": {"columnId": "tr-month"},

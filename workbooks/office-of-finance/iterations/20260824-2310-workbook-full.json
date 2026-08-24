@@ -18,7 +18,11 @@
           {
             "id": "ba-col-0",
             "formula": "[Custom SQL/Period Month]",
-            "name": "Period Month"
+            "name": "Period Month",
+            "format": {
+              "kind": "datetime",
+              "formatString": "%b %Y"
+            }
           },
           {
             "id": "ba-col-1",
@@ -55,7 +59,11 @@
           {
             "id": "ba-trend-col-0",
             "formula": "[Custom SQL/Period Month]",
-            "name": "Period Month"
+            "name": "Period Month",
+            "format": {
+              "kind": "datetime",
+              "formatString": "%b %Y"
+            }
           },
           {
             "id": "ba-trend-col-1",
@@ -144,7 +152,7 @@
           {
             "id": "kpi-total-budget-value",
             "name": "Total Budget",
-            "formula": "Sum([Custom SQL/Budget Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -178,7 +186,7 @@
           {
             "id": "kpi-total-actual-value",
             "name": "Total Actual",
-            "formula": "Sum([Custom SQL/Actual Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount])",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -187,7 +195,7 @@
           {
             "id": "kpi-total-actual-baseline",
             "name": "Budget",
-            "formula": "Sum([Custom SQL/Budget Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -230,7 +238,7 @@
           {
             "id": "kpi-variance-dollar-value",
             "name": "Variance $",
-            "formula": "Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -264,7 +272,7 @@
           {
             "id": "kpi-variance-pct-value",
             "name": "Variance %",
-            "formula": "(Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])) / Sum([Custom SQL/Budget Amount])",
+            "formula": "(Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])) / Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "+,.1%"
@@ -293,38 +301,42 @@
         "columns": [
           {
             "id": "bvd-pt-0",
-            "formula": "[Custom SQL/Period Month]",
-            "name": "Period Month"
+            "formula": "[Budget vs. Actual (Custom SQL)/Period Month]",
+            "name": "Period Month",
+            "format": {
+              "kind": "datetime",
+              "formatString": "%b %Y"
+            }
           },
           {
             "id": "bvd-pt-1",
-            "formula": "[Custom SQL/Department]",
+            "formula": "[Budget vs. Actual (Custom SQL)/Department]",
             "name": "Department"
           },
           {
             "id": "bvd-pt-2",
-            "formula": "[Custom SQL/Account Type]",
+            "formula": "[Budget vs. Actual (Custom SQL)/Account Type]",
             "name": "Account Type"
           },
           {
             "id": "bvd-pt-3",
-            "formula": "[Custom SQL/Budget Amount]",
+            "formula": "[Budget vs. Actual (Custom SQL)/Budget Amount]",
             "name": "Budget Amount"
           },
           {
             "id": "bvd-pt-4",
-            "formula": "[Custom SQL/Actual Amount]",
+            "formula": "[Budget vs. Actual (Custom SQL)/Actual Amount]",
             "name": "Actual Amount"
           },
           {
             "id": "bvd-dept",
             "name": "Department",
-            "formula": "[Custom SQL/Department]"
+            "formula": "[Budget vs. Actual (Custom SQL)/Department]"
           },
           {
             "id": "bvd-variance",
             "name": "Variance $",
-            "formula": "Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -352,17 +364,17 @@
           {
             "id": "dt-dept",
             "name": "Department",
-            "formula": "[Custom SQL/Department]"
+            "formula": "[Budget vs. Actual (Custom SQL)/Department]"
           },
           {
             "id": "dt-accttype",
             "name": "Account Type",
-            "formula": "[Custom SQL/Account Type]"
+            "formula": "[Budget vs. Actual (Custom SQL)/Account Type]"
           },
           {
             "id": "dt-budget",
             "name": "Budget",
-            "formula": "Sum([Custom SQL/Budget Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -371,7 +383,7 @@
           {
             "id": "dt-actual",
             "name": "Actual",
-            "formula": "Sum([Custom SQL/Actual Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -380,7 +392,7 @@
           {
             "id": "dt-variance-dollar",
             "name": "Variance $",
-            "formula": "Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])",
+            "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -389,7 +401,7 @@
           {
             "id": "dt-variance-pct",
             "name": "Variance %",
-            "formula": "(Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])) / Sum([Custom SQL/Budget Amount])",
+            "formula": "(Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])) / Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "+,.1%"
@@ -409,7 +421,7 @@
           {
             "id": "tr-month",
             "name": "Month",
-            "formula": "[Custom SQL/Period Month]",
+            "formula": "[Budget vs. Actual \u2014 Trend (Custom SQL)/Period Month]",
             "format": {
               "kind": "datetime",
               "formatString": "%b %Y"
@@ -418,7 +430,7 @@
           {
             "id": "tr-budget",
             "name": "Budget",
-            "formula": "Sum([Custom SQL/Budget Amount])",
+            "formula": "Sum([Budget vs. Actual \u2014 Trend (Custom SQL)/Budget Amount])",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -427,7 +439,7 @@
           {
             "id": "tr-actual",
             "name": "Actual",
-            "formula": "Sum([Custom SQL/Actual Amount])",
+            "formula": "Sum([Budget vs. Actual \u2014 Trend (Custom SQL)/Actual Amount])",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -451,13 +463,17 @@
         "source": {
           "connectionId": "a9d45cfe-ff65-4515-8193-a7072602a1ee",
           "kind": "sql",
-          "statement": "-- Synthetic P&L statement, monthly, trailing 12 months. Extends the same\n-- seed constants as budget_actuals.sql (Product Revenue / Sales & Marketing\n-- / R&D / G&A / Customer Success) so this page's totals reconcile with\n-- Page 1's department rollup by construction, rather than being a\n-- disconnected fabrication. Swap the `calc` CTE's seed constants per\n-- prospect.\n--\n-- Sigma tables have no native mid-table subtotal-row support, so the\n-- subtotal rows (Gross Profit, Operating Income, Net Income) are computed\n-- here in SQL and emitted as ordinary rows with an explicit \"Line Order\" \u2014\n-- the workbook table/pivot sorts by that column rather than relying on\n-- row-insertion order (see reference/specification/tables.md, pivot\n-- rowsBy[].sort). No trailing semicolon (see reference/specification/\n-- sources.md -> \"sql \u2014 custom SQL query\").\nWITH months AS (\n    SELECT DATEADD('month', SEQ4(), DATE '2025-09-01') AS period_month, SEQ4() AS month_index\n    FROM TABLE(GENERATOR(ROWCOUNT => 12))\n),\ncalc AS (\n    SELECT\n        period_month, month_index,\n        ROUND(2450000 * POWER(1.015, month_index)\n              * (1 + 0.07 * SIN(2 * PI() * (month_index / 12.0) + 0.3))\n              * CASE WHEN MONTH(period_month) = 1 THEN 0.90 ELSE 1.0 END, 0) AS revenue,\n        ROUND(420000 * POWER(1.03, month_index)\n              * CASE WHEN MONTH(period_month) IN (11, 12) THEN 1.22 ELSE 1.0 END, 0) AS sales_marketing,\n        ROUND(610000 * POWER(0.99, month_index), 0) AS rd,\n        ROUND(265000 * POWER(1.00, month_index), 0) AS ga,\n        ROUND(180000 * POWER(1.02, month_index), 0) AS customer_success\n    FROM months\n),\nderived AS (\n    SELECT *,\n        ROUND(revenue * 0.32, 0) AS cogs,\n        ROUND(revenue - revenue * 0.32, 0) AS gross_profit,\n        ROUND(revenue - revenue * 0.32 - sales_marketing - rd - ga - customer_success, 0) AS operating_income\n    FROM calc\n),\nfinal AS (\n    SELECT *,\n        ROUND(operating_income * 0.21, 0) AS income_tax,\n        ROUND(operating_income * 0.79, 0) AS net_income\n    FROM derived\n),\nlines AS (\n    SELECT period_month, 1  AS line_order, 'Revenue'  AS section, 'Revenue'             AS line_item, revenue          AS amount FROM final\n    UNION ALL SELECT period_month, 2,  'COGS',     'Cost of Goods Sold', cogs             FROM final\n    UNION ALL SELECT period_month, 3,  'Subtotal', 'Gross Profit',       gross_profit     FROM final\n    UNION ALL SELECT period_month, 4,  'Opex',     'Sales & Marketing',  sales_marketing  FROM final\n    UNION ALL SELECT period_month, 5,  'Opex',     'R&D',                rd               FROM final\n    UNION ALL SELECT period_month, 6,  'Opex',     'G&A',                ga               FROM final\n    UNION ALL SELECT period_month, 7,  'Opex',     'Customer Success',   customer_success FROM final\n    UNION ALL SELECT period_month, 8,  'Subtotal', 'Operating Income',   operating_income FROM final\n    UNION ALL SELECT period_month, 9,  'Tax',      'Income Tax',         income_tax       FROM final\n    UNION ALL SELECT period_month, 10, 'Subtotal', 'Net Income',         net_income        FROM final\n)\nSELECT\n    period_month AS \"Period Month\",\n    line_order   AS \"Line Order\",\n    section      AS \"Section\",\n    line_item    AS \"Line Item\",\n    amount       AS \"Amount\"\nFROM lines\nORDER BY period_month, line_order\n"
+          "statement": "-- Synthetic P&L statement, monthly, trailing 12 months. Extends the same\n-- seed constants as budget_actuals.sql (Product Revenue / Sales & Marketing\n-- / R&D / G&A / Customer Success) so this page's totals reconcile with\n-- Page 1's department rollup by construction, rather than being a\n-- disconnected fabrication. Swap the `calc` CTE's seed constants per\n-- prospect.\n--\n-- Sigma tables have no native mid-table subtotal-row support, so the\n-- subtotal rows (Gross Profit, Operating Income, Net Income) are computed\n-- here in SQL and emitted as ordinary rows with an explicit \"Line Order\" \u2014\n-- the workbook table/pivot sorts by that column rather than relying on\n-- row-insertion order (see reference/specification/tables.md, pivot\n-- rowsBy[].sort). No trailing semicolon (see reference/specification/\n-- sources.md -> \"sql \u2014 custom SQL query\").\nWITH months AS (\n    SELECT DATEADD('month', SEQ4(), DATE '2025-09-01') AS period_month, SEQ4() AS month_index\n    FROM TABLE(GENERATOR(ROWCOUNT => 12))\n),\ncalc AS (\n    SELECT\n        period_month, month_index,\n        ROUND(2450000 * POWER(1.015, month_index)\n              * (1 + 0.07 * SIN(2 * PI() * (month_index / 12.0) + 0.3))\n              * CASE WHEN MONTH(period_month) = 1 THEN 0.90 ELSE 1.0 END, 0) AS revenue,\n        ROUND(420000 * POWER(1.03, month_index)\n              * CASE WHEN MONTH(period_month) IN (11, 12) THEN 1.22 ELSE 1.0 END, 0) AS sales_marketing,\n        ROUND(610000 * POWER(0.99, month_index), 0) AS rd,\n        ROUND(265000 * POWER(1.00, month_index), 0) AS ga,\n        ROUND(180000 * POWER(1.02, month_index), 0) AS customer_success\n    FROM months\n),\nderived AS (\n    SELECT *,\n        ROUND(revenue * 0.32, 0) AS cogs,\n        ROUND(revenue - revenue * 0.32, 0) AS gross_profit,\n        ROUND(revenue - revenue * 0.32 - sales_marketing - rd - ga - customer_success, 0) AS operating_income\n    FROM calc\n),\nfinal AS (\n    SELECT *,\n        ROUND(operating_income * 0.21, 0) AS income_tax,\n        ROUND(operating_income * 0.79, 0) AS net_income\n    FROM derived\n),\nlines AS (\n    SELECT period_month, 1  AS line_order, 'Revenue'  AS section, 'Revenue'             AS line_item, revenue          AS amount FROM final\n    UNION ALL SELECT period_month, 2,  'COGS',     'Cost of Goods Sold', cogs             FROM final\n    UNION ALL SELECT period_month, 3,  'Subtotal', 'Gross Profit',       gross_profit     FROM final\n    UNION ALL SELECT period_month, 4,  'Opex',     'Sales & Marketing',  sales_marketing  FROM final\n    UNION ALL SELECT period_month, 5,  'Opex',     'R&D',                rd               FROM final\n    UNION ALL SELECT period_month, 6,  'Opex',     'G&A',                ga               FROM final\n    UNION ALL SELECT period_month, 7,  'Opex',     'Customer Success',   customer_success FROM final\n    UNION ALL SELECT period_month, 8,  'Subtotal', 'Operating Income',   operating_income FROM final\n    UNION ALL SELECT period_month, 9,  'Tax',      'Income Tax',         income_tax       FROM final\n    UNION ALL SELECT period_month, 10, 'Subtotal', 'Net Income',         net_income        FROM final\n)\n-- Line Item is prefixed with its zero-padded Line Order (e.g. \"03. Gross\n-- Profit\") so the pivot's default row sort (which a pivot rowsBy[].sort\n-- pointing at a SEPARATE dimension column failed to do \u2014 see\n-- reference/history.md 2026-08-24) lands in correct accounting order\n-- without any extra pivot config.\nSELECT\n    period_month                                   AS \"Period Month\",\n    line_order                                      AS \"Line Order\",\n    section                                         AS \"Section\",\n    LPAD(line_order, 2, '0') || '. ' || line_item   AS \"Line Item\",\n    amount                                           AS \"Amount\"\nFROM lines\nORDER BY period_month, line_order\n"
         },
         "columns": [
           {
             "id": "pl-col-0",
             "formula": "[Custom SQL/Period Month]",
-            "name": "Period Month"
+            "name": "Period Month",
+            "format": {
+              "kind": "datetime",
+              "formatString": "%b %Y"
+            }
           },
           {
             "id": "pl-col-1",
@@ -488,13 +504,17 @@
         "source": {
           "connectionId": "a9d45cfe-ff65-4515-8193-a7072602a1ee",
           "kind": "sql",
-          "statement": "-- Synthetic P&L statement, monthly, trailing 12 months. Extends the same\n-- seed constants as budget_actuals.sql (Product Revenue / Sales & Marketing\n-- / R&D / G&A / Customer Success) so this page's totals reconcile with\n-- Page 1's department rollup by construction, rather than being a\n-- disconnected fabrication. Swap the `calc` CTE's seed constants per\n-- prospect.\n--\n-- Sigma tables have no native mid-table subtotal-row support, so the\n-- subtotal rows (Gross Profit, Operating Income, Net Income) are computed\n-- here in SQL and emitted as ordinary rows with an explicit \"Line Order\" \u2014\n-- the workbook table/pivot sorts by that column rather than relying on\n-- row-insertion order (see reference/specification/tables.md, pivot\n-- rowsBy[].sort). No trailing semicolon (see reference/specification/\n-- sources.md -> \"sql \u2014 custom SQL query\").\nWITH months AS (\n    SELECT DATEADD('month', SEQ4(), DATE '2025-09-01') AS period_month, SEQ4() AS month_index\n    FROM TABLE(GENERATOR(ROWCOUNT => 12))\n),\ncalc AS (\n    SELECT\n        period_month, month_index,\n        ROUND(2450000 * POWER(1.015, month_index)\n              * (1 + 0.07 * SIN(2 * PI() * (month_index / 12.0) + 0.3))\n              * CASE WHEN MONTH(period_month) = 1 THEN 0.90 ELSE 1.0 END, 0) AS revenue,\n        ROUND(420000 * POWER(1.03, month_index)\n              * CASE WHEN MONTH(period_month) IN (11, 12) THEN 1.22 ELSE 1.0 END, 0) AS sales_marketing,\n        ROUND(610000 * POWER(0.99, month_index), 0) AS rd,\n        ROUND(265000 * POWER(1.00, month_index), 0) AS ga,\n        ROUND(180000 * POWER(1.02, month_index), 0) AS customer_success\n    FROM months\n),\nderived AS (\n    SELECT *,\n        ROUND(revenue * 0.32, 0) AS cogs,\n        ROUND(revenue - revenue * 0.32, 0) AS gross_profit,\n        ROUND(revenue - revenue * 0.32 - sales_marketing - rd - ga - customer_success, 0) AS operating_income\n    FROM calc\n),\nfinal AS (\n    SELECT *,\n        ROUND(operating_income * 0.21, 0) AS income_tax,\n        ROUND(operating_income * 0.79, 0) AS net_income\n    FROM derived\n),\nlines AS (\n    SELECT period_month, 1  AS line_order, 'Revenue'  AS section, 'Revenue'             AS line_item, revenue          AS amount FROM final\n    UNION ALL SELECT period_month, 2,  'COGS',     'Cost of Goods Sold', cogs             FROM final\n    UNION ALL SELECT period_month, 3,  'Subtotal', 'Gross Profit',       gross_profit     FROM final\n    UNION ALL SELECT period_month, 4,  'Opex',     'Sales & Marketing',  sales_marketing  FROM final\n    UNION ALL SELECT period_month, 5,  'Opex',     'R&D',                rd               FROM final\n    UNION ALL SELECT period_month, 6,  'Opex',     'G&A',                ga               FROM final\n    UNION ALL SELECT period_month, 7,  'Opex',     'Customer Success',   customer_success FROM final\n    UNION ALL SELECT period_month, 8,  'Subtotal', 'Operating Income',   operating_income FROM final\n    UNION ALL SELECT period_month, 9,  'Tax',      'Income Tax',         income_tax       FROM final\n    UNION ALL SELECT period_month, 10, 'Subtotal', 'Net Income',         net_income        FROM final\n)\nSELECT\n    period_month AS \"Period Month\",\n    line_order   AS \"Line Order\",\n    section      AS \"Section\",\n    line_item    AS \"Line Item\",\n    amount       AS \"Amount\"\nFROM lines\nORDER BY period_month, line_order\n"
+          "statement": "-- Synthetic P&L statement, monthly, trailing 12 months. Extends the same\n-- seed constants as budget_actuals.sql (Product Revenue / Sales & Marketing\n-- / R&D / G&A / Customer Success) so this page's totals reconcile with\n-- Page 1's department rollup by construction, rather than being a\n-- disconnected fabrication. Swap the `calc` CTE's seed constants per\n-- prospect.\n--\n-- Sigma tables have no native mid-table subtotal-row support, so the\n-- subtotal rows (Gross Profit, Operating Income, Net Income) are computed\n-- here in SQL and emitted as ordinary rows with an explicit \"Line Order\" \u2014\n-- the workbook table/pivot sorts by that column rather than relying on\n-- row-insertion order (see reference/specification/tables.md, pivot\n-- rowsBy[].sort). No trailing semicolon (see reference/specification/\n-- sources.md -> \"sql \u2014 custom SQL query\").\nWITH months AS (\n    SELECT DATEADD('month', SEQ4(), DATE '2025-09-01') AS period_month, SEQ4() AS month_index\n    FROM TABLE(GENERATOR(ROWCOUNT => 12))\n),\ncalc AS (\n    SELECT\n        period_month, month_index,\n        ROUND(2450000 * POWER(1.015, month_index)\n              * (1 + 0.07 * SIN(2 * PI() * (month_index / 12.0) + 0.3))\n              * CASE WHEN MONTH(period_month) = 1 THEN 0.90 ELSE 1.0 END, 0) AS revenue,\n        ROUND(420000 * POWER(1.03, month_index)\n              * CASE WHEN MONTH(period_month) IN (11, 12) THEN 1.22 ELSE 1.0 END, 0) AS sales_marketing,\n        ROUND(610000 * POWER(0.99, month_index), 0) AS rd,\n        ROUND(265000 * POWER(1.00, month_index), 0) AS ga,\n        ROUND(180000 * POWER(1.02, month_index), 0) AS customer_success\n    FROM months\n),\nderived AS (\n    SELECT *,\n        ROUND(revenue * 0.32, 0) AS cogs,\n        ROUND(revenue - revenue * 0.32, 0) AS gross_profit,\n        ROUND(revenue - revenue * 0.32 - sales_marketing - rd - ga - customer_success, 0) AS operating_income\n    FROM calc\n),\nfinal AS (\n    SELECT *,\n        ROUND(operating_income * 0.21, 0) AS income_tax,\n        ROUND(operating_income * 0.79, 0) AS net_income\n    FROM derived\n),\nlines AS (\n    SELECT period_month, 1  AS line_order, 'Revenue'  AS section, 'Revenue'             AS line_item, revenue          AS amount FROM final\n    UNION ALL SELECT period_month, 2,  'COGS',     'Cost of Goods Sold', cogs             FROM final\n    UNION ALL SELECT period_month, 3,  'Subtotal', 'Gross Profit',       gross_profit     FROM final\n    UNION ALL SELECT period_month, 4,  'Opex',     'Sales & Marketing',  sales_marketing  FROM final\n    UNION ALL SELECT period_month, 5,  'Opex',     'R&D',                rd               FROM final\n    UNION ALL SELECT period_month, 6,  'Opex',     'G&A',                ga               FROM final\n    UNION ALL SELECT period_month, 7,  'Opex',     'Customer Success',   customer_success FROM final\n    UNION ALL SELECT period_month, 8,  'Subtotal', 'Operating Income',   operating_income FROM final\n    UNION ALL SELECT period_month, 9,  'Tax',      'Income Tax',         income_tax       FROM final\n    UNION ALL SELECT period_month, 10, 'Subtotal', 'Net Income',         net_income        FROM final\n)\n-- Line Item is prefixed with its zero-padded Line Order (e.g. \"03. Gross\n-- Profit\") so the pivot's default row sort (which a pivot rowsBy[].sort\n-- pointing at a SEPARATE dimension column failed to do \u2014 see\n-- reference/history.md 2026-08-24) lands in correct accounting order\n-- without any extra pivot config.\nSELECT\n    period_month                                   AS \"Period Month\",\n    line_order                                      AS \"Line Order\",\n    section                                         AS \"Section\",\n    LPAD(line_order, 2, '0') || '. ' || line_item   AS \"Line Item\",\n    amount                                           AS \"Amount\"\nFROM lines\nORDER BY period_month, line_order\n"
         },
         "columns": [
           {
             "id": "pl-trend-col-0",
             "formula": "[Custom SQL/Period Month]",
-            "name": "Period Month"
+            "name": "Period Month",
+            "format": {
+              "kind": "datetime",
+              "formatString": "%b %Y"
+            }
           },
           {
             "id": "pl-trend-col-1",
@@ -583,7 +603,7 @@
           {
             "id": "pl-kpi-revenue-value",
             "name": "Revenue",
-            "formula": "SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 1)",
+            "formula": "SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 1)",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -617,7 +637,7 @@
           {
             "id": "pl-kpi-gross-margin-value",
             "name": "Gross Margin %",
-            "formula": "(SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 3)) / (SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 1))",
+            "formula": "(SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 3)) / (SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 1))",
             "format": {
               "kind": "number",
               "formatString": ",.1%"
@@ -651,7 +671,7 @@
           {
             "id": "pl-kpi-operating-margin-value",
             "name": "Operating Margin %",
-            "formula": "(SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 8)) / (SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 1))",
+            "formula": "(SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 8)) / (SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 1))",
             "format": {
               "kind": "number",
               "formatString": ",.1%"
@@ -685,7 +705,7 @@
           {
             "id": "pl-kpi-net-income-value",
             "name": "Net Income",
-            "formula": "SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 10)",
+            "formula": "SumIf([P&L Statement (Custom SQL)/Amount], [P&L Statement (Custom SQL)/Line Order] = 10)",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -715,17 +735,12 @@
           {
             "id": "piv-line-item",
             "name": "Line Item",
-            "formula": "[Custom SQL/Line Item]"
-          },
-          {
-            "id": "piv-line-order",
-            "name": "Line Order",
-            "formula": "[Custom SQL/Line Order]"
+            "formula": "[P&L Statement (Custom SQL)/Line Item]"
           },
           {
             "id": "piv-amount",
             "name": "Amount",
-            "formula": "Sum([Custom SQL/Amount])",
+            "formula": "Sum([P&L Statement (Custom SQL)/Amount])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -734,11 +749,7 @@
         ],
         "rowsBy": [
           {
-            "id": "piv-line-item",
-            "sort": {
-              "by": "piv-line-order",
-              "direction": "ascending"
-            }
+            "id": "piv-line-item"
           }
         ],
         "columnsBy": [],
@@ -758,7 +769,7 @@
           {
             "id": "tr-month",
             "name": "Month",
-            "formula": "[Custom SQL/Period Month]",
+            "formula": "[P&L Statement \u2014 Trend (Custom SQL)/Period Month]",
             "format": {
               "kind": "datetime",
               "formatString": "%b %Y"
@@ -767,7 +778,7 @@
           {
             "id": "tr-net-income",
             "name": "Net Income",
-            "formula": "SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 10)",
+            "formula": "SumIf([P&L Statement \u2014 Trend (Custom SQL)/Amount], [P&L Statement \u2014 Trend (Custom SQL)/Line Order] = 10)",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -776,7 +787,7 @@
           {
             "id": "tr-revenue",
             "name": "Revenue",
-            "formula": "SumIf([Custom SQL/Amount], [Custom SQL/Line Order] = 1)",
+            "formula": "SumIf([P&L Statement \u2014 Trend (Custom SQL)/Amount], [P&L Statement \u2014 Trend (Custom SQL)/Line Order] = 1)",
             "format": {
               "kind": "number",
               "formatString": "$.3~s"
@@ -811,7 +822,11 @@
           {
             "id": "gl-col-1",
             "formula": "[Custom SQL/Entry Date]",
-            "name": "Entry Date"
+            "name": "Entry Date",
+            "format": {
+              "kind": "datetime",
+              "formatString": "%b %d, %Y"
+            }
           },
           {
             "id": "gl-col-2",
@@ -936,7 +951,7 @@
           {
             "id": "gl-kpi-debits-value",
             "name": "Total Debits",
-            "formula": "Sum([Custom SQL/Debit])",
+            "formula": "Sum([General Ledger (Custom SQL)/Debit])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -945,7 +960,7 @@
           {
             "id": "gl-kpi-debits-baseline",
             "name": "Credits",
-            "formula": "Sum([Custom SQL/Credit])",
+            "formula": "Sum([General Ledger (Custom SQL)/Credit])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -988,7 +1003,7 @@
           {
             "id": "gl-kpi-credits-value",
             "name": "Total Credits",
-            "formula": "Sum([Custom SQL/Credit])",
+            "formula": "Sum([General Ledger (Custom SQL)/Credit])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -1022,7 +1037,7 @@
           {
             "id": "gl-kpi-net-value",
             "name": "Net (Dr \u2212 Cr)",
-            "formula": "Sum([Custom SQL/Debit]) - Sum([Custom SQL/Credit])",
+            "formula": "Sum([General Ledger (Custom SQL)/Debit]) - Sum([General Ledger (Custom SQL)/Credit])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -1056,7 +1071,7 @@
           {
             "id": "gl-kpi-count-value",
             "name": "Entry Lines",
-            "formula": "Count([Custom SQL/Entry ID])",
+            "formula": "Count([General Ledger (Custom SQL)/Entry ID])",
             "format": {
               "kind": "number",
               "formatString": ",.0f"
@@ -1086,12 +1101,12 @@
           {
             "id": "tb-account",
             "name": "Account",
-            "formula": "[Custom SQL/Account]"
+            "formula": "[General Ledger (Custom SQL)/Account]"
           },
           {
             "id": "tb-debit",
             "name": "Total Debit",
-            "formula": "Sum([Custom SQL/Debit])",
+            "formula": "Sum([General Ledger (Custom SQL)/Debit])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -1100,7 +1115,7 @@
           {
             "id": "tb-credit",
             "name": "Total Credit",
-            "formula": "Sum([Custom SQL/Credit])",
+            "formula": "Sum([General Ledger (Custom SQL)/Credit])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -1109,7 +1124,7 @@
           {
             "id": "tb-net",
             "name": "Net",
-            "formula": "Sum([Custom SQL/Debit]) - Sum([Custom SQL/Credit])",
+            "formula": "Sum([General Ledger (Custom SQL)/Debit]) - Sum([General Ledger (Custom SQL)/Credit])",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -1118,11 +1133,7 @@
         ],
         "rowsBy": [
           {
-            "id": "tb-account",
-            "sort": {
-              "by": "tb-debit",
-              "direction": "descending"
-            }
+            "id": "tb-account"
           }
         ],
         "columnsBy": [],
@@ -1144,7 +1155,7 @@
           {
             "id": "dt-date",
             "name": "Entry Date",
-            "formula": "[Custom SQL/Entry Date]",
+            "formula": "[General Ledger (Custom SQL)/Entry Date]",
             "format": {
               "kind": "datetime",
               "formatString": "%b %d, %Y"
@@ -1153,27 +1164,27 @@
           {
             "id": "dt-id",
             "name": "Entry ID",
-            "formula": "[Custom SQL/Entry ID]"
+            "formula": "[General Ledger (Custom SQL)/Entry ID]"
           },
           {
             "id": "dt-category",
             "name": "Category",
-            "formula": "[Custom SQL/Category]"
+            "formula": "[General Ledger (Custom SQL)/Category]"
           },
           {
             "id": "dt-account",
             "name": "Account",
-            "formula": "[Custom SQL/Account]"
+            "formula": "[General Ledger (Custom SQL)/Account]"
           },
           {
             "id": "dt-description",
             "name": "Description",
-            "formula": "[Custom SQL/Description]"
+            "formula": "[General Ledger (Custom SQL)/Description]"
           },
           {
             "id": "dt-debit",
             "name": "Debit",
-            "formula": "[Custom SQL/Debit]",
+            "formula": "[General Ledger (Custom SQL)/Debit]",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"
@@ -1182,7 +1193,7 @@
           {
             "id": "dt-credit",
             "name": "Credit",
-            "formula": "[Custom SQL/Credit]",
+            "formula": "[General Ledger (Custom SQL)/Credit]",
             "format": {
               "kind": "number",
               "formatString": "$,.0f"

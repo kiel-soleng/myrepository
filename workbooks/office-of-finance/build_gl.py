@@ -8,11 +8,8 @@ CONN_SNOWFLAKE = "a9d45cfe-ff65-4515-8193-a7072602a1ee"
 FOLDER_ID = "6dfa8584-aa74-4de6-99cb-ecbbbba668ac"
 
 BASE_COLS = ["Entry ID", "Entry Date", "Category", "Account", "Description", "Debit", "Credit"]
-
-
-def cols(names, prefix):
-    return [{"id": f"{prefix}{i}", "formula": f'[Custom SQL/{n}]', "name": n}
-            for i, n in enumerate(names)]
+COL_FORMATS = {"Entry Date": style.DATE_FMT}
+cols = style.cols
 
 
 def build_page():
@@ -29,7 +26,7 @@ def build_page():
         "kind": "table",
         "name": "General Ledger (Custom SQL)",
         "source": {"connectionId": CONN_SNOWFLAKE, "kind": "sql", "statement": sql_text},
-        "columns": cols(BASE_COLS, "gl-col-"),
+        "columns": cols(BASE_COLS, "gl-col-", COL_FORMATS),
     })
     COL_CATEGORY = "gl-col-2"
     COL_ACCOUNT = "gl-col-3"
@@ -99,14 +96,14 @@ def build_page():
 
     # Total Debits vs. Total Credits is the natural trial-balance pairing —
     # the delta arrow directly shows whether the ledger is balanced.
-    kpi_debits_id = kpi("gl-kpi-debits", "Total Debits", "Sum([Custom SQL/Debit])", accent=True,
-        baseline_name="Credits", baseline_formula="Sum([Custom SQL/Credit])")
-    kpi_credits_id = kpi("gl-kpi-credits", "Total Credits", "Sum([Custom SQL/Credit])")
+    kpi_debits_id = kpi("gl-kpi-debits", "Total Debits", "Sum([General Ledger (Custom SQL)/Debit])", accent=True,
+        baseline_name="Credits", baseline_formula="Sum([General Ledger (Custom SQL)/Credit])")
+    kpi_credits_id = kpi("gl-kpi-credits", "Total Credits", "Sum([General Ledger (Custom SQL)/Credit])")
     # Should read ~$0 if the ledger is balanced — a genuine data-quality
     # signal, not just decoration.
     kpi_net_id = kpi("gl-kpi-net", "Net (Dr − Cr)",
-                      "Sum([Custom SQL/Debit]) - Sum([Custom SQL/Credit])", good_is_high=False)
-    kpi_count_id = kpi("gl-kpi-count", "Entry Lines", "Count([Custom SQL/Entry ID])",
+                      "Sum([General Ledger (Custom SQL)/Debit]) - Sum([General Ledger (Custom SQL)/Credit])", good_is_high=False)
+    kpi_count_id = kpi("gl-kpi-count", "Entry Lines", "Count([General Ledger (Custom SQL)/Entry ID])",
                         value_format=style.INT_FMT)
 
     # ---- Trial balance: net activity by account ----
@@ -116,15 +113,19 @@ def build_page():
         "name": "Trial Balance by Account",
         "source": {"kind": "table", "elementId": tbl_id},
         "columns": [
-            {"id": "tb-account", "name": "Account", "formula": "[Custom SQL/Account]"},
-            {"id": "tb-debit", "name": "Total Debit", "formula": "Sum([Custom SQL/Debit])",
+            {"id": "tb-account", "name": "Account", "formula": "[General Ledger (Custom SQL)/Account]"},
+            {"id": "tb-debit", "name": "Total Debit", "formula": "Sum([General Ledger (Custom SQL)/Debit])",
              "format": style.CURRENCY_FULL_FMT},
-            {"id": "tb-credit", "name": "Total Credit", "formula": "Sum([Custom SQL/Credit])",
+            {"id": "tb-credit", "name": "Total Credit", "formula": "Sum([General Ledger (Custom SQL)/Credit])",
              "format": style.CURRENCY_FULL_FMT},
-            {"id": "tb-net", "name": "Net", "formula": "Sum([Custom SQL/Debit]) - Sum([Custom SQL/Credit])",
+            {"id": "tb-net", "name": "Net", "formula": "Sum([General Ledger (Custom SQL)/Debit]) - Sum([General Ledger (Custom SQL)/Credit])",
              "format": style.CURRENCY_FULL_FMT},
         ],
-        "rowsBy": [{"id": "tb-account", "sort": {"by": "tb-debit", "direction": "descending"}}],
+        # No `sort` on the rowsBy entry — see build_pl.py's pivot for why:
+        # a rowsBy[].sort pointing at a separate column silently dropped
+        # the row binding entirely live, collapsing this to one blank-
+        # label grand-total row instead of one row per account.
+        "rowsBy": [{"id": "tb-account"}],
         "columnsBy": [],
         "values": ["tb-debit", "tb-credit", "tb-net"],
     })
@@ -136,13 +137,13 @@ def build_page():
         "name": "Journal Entry Detail",
         "source": {"kind": "table", "elementId": tbl_id},
         "columns": [
-            {"id": "dt-date", "name": "Entry Date", "formula": "[Custom SQL/Entry Date]", "format": style.DATE_FMT},
-            {"id": "dt-id", "name": "Entry ID", "formula": "[Custom SQL/Entry ID]"},
-            {"id": "dt-category", "name": "Category", "formula": "[Custom SQL/Category]"},
-            {"id": "dt-account", "name": "Account", "formula": "[Custom SQL/Account]"},
-            {"id": "dt-description", "name": "Description", "formula": "[Custom SQL/Description]"},
-            {"id": "dt-debit", "name": "Debit", "formula": "[Custom SQL/Debit]", "format": style.CURRENCY_FULL_FMT},
-            {"id": "dt-credit", "name": "Credit", "formula": "[Custom SQL/Credit]", "format": style.CURRENCY_FULL_FMT},
+            {"id": "dt-date", "name": "Entry Date", "formula": "[General Ledger (Custom SQL)/Entry Date]", "format": style.DATE_FMT},
+            {"id": "dt-id", "name": "Entry ID", "formula": "[General Ledger (Custom SQL)/Entry ID]"},
+            {"id": "dt-category", "name": "Category", "formula": "[General Ledger (Custom SQL)/Category]"},
+            {"id": "dt-account", "name": "Account", "formula": "[General Ledger (Custom SQL)/Account]"},
+            {"id": "dt-description", "name": "Description", "formula": "[General Ledger (Custom SQL)/Description]"},
+            {"id": "dt-debit", "name": "Debit", "formula": "[General Ledger (Custom SQL)/Debit]", "format": style.CURRENCY_FULL_FMT},
+            {"id": "dt-credit", "name": "Credit", "formula": "[General Ledger (Custom SQL)/Credit]", "format": style.CURRENCY_FULL_FMT},
         ],
     })
 

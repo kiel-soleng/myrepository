@@ -8,12 +8,9 @@ CONN_SNOWFLAKE = "a9d45cfe-ff65-4515-8193-a7072602a1ee"   # "Snowflake" connecti
 FOLDER_ID = "6dfa8584-aa74-4de6-99cb-ecbbbba668ac"         # Papercrane Staging/Solutions/claude-roundtrip-tests
 
 
-def cols(names, prefix):
-    return [{"id": f"{prefix}{i}", "formula": f'[Custom SQL/{n}]', "name": n}
-            for i, n in enumerate(names)]
-
-
+cols = style.cols
 BASE_COLS = ["Period Month", "Department", "Account Type", "Budget Amount", "Actual Amount"]
+COL_FORMATS = {"Period Month": style.MONTH_FMT}
 
 
 def build_page():
@@ -31,7 +28,7 @@ def build_page():
         "kind": "table",
         "name": "Budget vs. Actual (Custom SQL)",
         "source": {"connectionId": CONN_SNOWFLAKE, "kind": "sql", "statement": sql_text},
-        "columns": cols(BASE_COLS, "ba-col-"),
+        "columns": cols(BASE_COLS, "ba-col-", COL_FORMATS),
     })
 
     # ---- Table 2: unfiltered duplicate, trend chart only (needs full 12mo) ----
@@ -40,7 +37,7 @@ def build_page():
         "kind": "table",
         "name": "Budget vs. Actual — Trend (Custom SQL)",
         "source": {"connectionId": CONN_SNOWFLAKE, "kind": "sql", "statement": sql_text},
-        "columns": cols(BASE_COLS, "ba-trend-col-"),
+        "columns": cols(BASE_COLS, "ba-trend-col-", COL_FORMATS),
     })
 
     # Column id lookups on tbl-budget-actuals (ba-col-0..4 = Period Month, Department, Account Type, Budget Amount, Actual Amount)
@@ -102,19 +99,19 @@ def build_page():
             **extra,
         })
 
-    kpi_budget_id = kpi("kpi-total-budget", "Total Budget", 'Sum([Custom SQL/Budget Amount])')
+    kpi_budget_id = kpi("kpi-total-budget", "Total Budget", 'Sum([Budget vs. Actual (Custom SQL)/Budget Amount])')
     # Total Actual vs. Total Budget is the natural comparison pair here —
     # more meaningful than a generic period-over-period delta would be.
     # Variance good/bad is genuinely mixed (4 expense depts + 1 revenue dept
     # rolled into one card) — kpis.md flags this same caveat. good_is_high=False
     # matches the dominant expense-heavy read; splitting by account type is a
     # real fix left for a future iteration, not solved in this pass.
-    kpi_actual_id = kpi("kpi-total-actual", "Total Actual", 'Sum([Custom SQL/Actual Amount])', accent=True,
-        good_is_high=False, baseline_name="Budget", baseline_formula='Sum([Custom SQL/Budget Amount])')
+    kpi_actual_id = kpi("kpi-total-actual", "Total Actual", 'Sum([Budget vs. Actual (Custom SQL)/Actual Amount])', accent=True,
+        good_is_high=False, baseline_name="Budget", baseline_formula='Sum([Budget vs. Actual (Custom SQL)/Budget Amount])')
     kpi_var_dollar_id = kpi("kpi-variance-dollar", "Variance $",
-        'Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])')
+        'Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])')
     kpi_var_pct_id = kpi("kpi-variance-pct", "Variance %",
-        '(Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])) / Sum([Custom SQL/Budget Amount])',
+        '(Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])) / Sum([Budget vs. Actual (Custom SQL)/Budget Amount])',
         value_format=style.DELTA_PERCENT_FMT)
 
     # ---- Variance-by-department bar chart (waterfall substitute — see note) ----
@@ -128,10 +125,10 @@ def build_page():
         "name": "Variance $ by Department",
         "source": {"kind": "table", "elementId": tbl_id},
         "columns": [
-            *cols(BASE_COLS, "bvd-pt-"),
-            {"id": "bvd-dept", "name": "Department", "formula": "[Custom SQL/Department]"},
+            *style.passthrough_cols(BASE_COLS, "bvd-pt-", "Budget vs. Actual (Custom SQL)", COL_FORMATS),
+            {"id": "bvd-dept", "name": "Department", "formula": "[Budget vs. Actual (Custom SQL)/Department]"},
             {"id": "bvd-variance", "name": "Variance $",
-             "formula": "Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])",
+             "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
              "format": style.CURRENCY_FMT},
         ],
         "xAxis": {"columnId": "bvd-dept"},
@@ -145,17 +142,17 @@ def build_page():
         "name": "Budget vs. Actual by Department",
         "source": {"kind": "table", "elementId": tbl_id},
         "columns": [
-            {"id": "dt-dept", "name": "Department", "formula": "[Custom SQL/Department]"},
-            {"id": "dt-accttype", "name": "Account Type", "formula": "[Custom SQL/Account Type]"},
-            {"id": "dt-budget", "name": "Budget", "formula": "Sum([Custom SQL/Budget Amount])",
+            {"id": "dt-dept", "name": "Department", "formula": "[Budget vs. Actual (Custom SQL)/Department]"},
+            {"id": "dt-accttype", "name": "Account Type", "formula": "[Budget vs. Actual (Custom SQL)/Account Type]"},
+            {"id": "dt-budget", "name": "Budget", "formula": "Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
              "format": style.CURRENCY_FULL_FMT},
-            {"id": "dt-actual", "name": "Actual", "formula": "Sum([Custom SQL/Actual Amount])",
+            {"id": "dt-actual", "name": "Actual", "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount])",
              "format": style.CURRENCY_FULL_FMT},
             {"id": "dt-variance-dollar", "name": "Variance $",
-             "formula": "Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])",
+             "formula": "Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
              "format": style.CURRENCY_FULL_FMT},
             {"id": "dt-variance-pct", "name": "Variance %",
-             "formula": "(Sum([Custom SQL/Actual Amount]) - Sum([Custom SQL/Budget Amount])) / Sum([Custom SQL/Budget Amount])",
+             "formula": "(Sum([Budget vs. Actual (Custom SQL)/Actual Amount]) - Sum([Budget vs. Actual (Custom SQL)/Budget Amount])) / Sum([Budget vs. Actual (Custom SQL)/Budget Amount])",
              "format": style.DELTA_PERCENT_FMT},
         ],
     })
@@ -167,10 +164,10 @@ def build_page():
         "name": "Budget vs. Actual — Trailing 12 Months",
         "source": {"kind": "table", "elementId": tbl_trend_id},
         "columns": [
-            {"id": "tr-month", "name": "Month", "formula": '[Custom SQL/Period Month]', "format": style.MONTH_FMT},
-            {"id": "tr-budget", "name": "Budget", "formula": "Sum([Custom SQL/Budget Amount])",
+            {"id": "tr-month", "name": "Month", "formula": '[Budget vs. Actual — Trend (Custom SQL)/Period Month]', "format": style.MONTH_FMT},
+            {"id": "tr-budget", "name": "Budget", "formula": "Sum([Budget vs. Actual — Trend (Custom SQL)/Budget Amount])",
              "format": style.CURRENCY_FMT},
-            {"id": "tr-actual", "name": "Actual", "formula": "Sum([Custom SQL/Actual Amount])",
+            {"id": "tr-actual", "name": "Actual", "formula": "Sum([Budget vs. Actual — Trend (Custom SQL)/Actual Amount])",
              "format": style.CURRENCY_FMT},
         ],
         "xAxis": {"columnId": "tr-month"},

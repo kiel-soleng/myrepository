@@ -54,11 +54,16 @@ lines AS (
     UNION ALL SELECT period_month, 9,  'Tax',      'Income Tax',         income_tax       FROM final
     UNION ALL SELECT period_month, 10, 'Subtotal', 'Net Income',         net_income        FROM final
 )
+-- Line Item is prefixed with its zero-padded Line Order (e.g. "03. Gross
+-- Profit") so the pivot's default row sort (which a pivot rowsBy[].sort
+-- pointing at a SEPARATE dimension column failed to do — see
+-- reference/history.md 2026-08-24) lands in correct accounting order
+-- without any extra pivot config.
 SELECT
-    period_month AS "Period Month",
-    line_order   AS "Line Order",
-    section      AS "Section",
-    line_item    AS "Line Item",
-    amount       AS "Amount"
+    period_month                                   AS "Period Month",
+    line_order                                      AS "Line Order",
+    section                                         AS "Section",
+    LPAD(line_order, 2, '0') || '. ' || line_item   AS "Line Item",
+    amount                                           AS "Amount"
 FROM lines
 ORDER BY period_month, line_order

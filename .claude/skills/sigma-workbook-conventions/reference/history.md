@@ -446,3 +446,83 @@ of JSON, check `cf-mitigated` in the response headers before assuming
 the spec is wrong: retry with a trivially different `name` (or wait) to
 confirm it's this class of issue before spending time re-debugging spec
 content that was never the problem.
+
+## 2026-08-24 — `[Custom SQL/...]` used on a downstream element silently nulls every dimension column (the big one)
+
+The user reported the finished 4-page workbook looked "lackluster": the
+P&L Statement pivot showed zero line items, the GL Journal Entry Detail
+table showed nothing but blank cells ("multiple values" in the UI), and
+Page 1's own department breakdown — which had been treated as "working"
+since the trailing-semicolon fix — turned out to have the identical bug,
+just unnoticed (the top-line KPIs still showed correct totals, masking
+that the chart/table underneath was fully flattened).
+
+**Root cause: every downstream chart/table/pivot in this build referenced
+its source columns as `[Custom SQL/<column>]`, but `[Custom SQL/...]` is
+NOT a general-purpose alias for "the nearest custom-SQL ancestor" — it is
+the literal, implicit self-reference name of ONE specific element: the
+`kind: "table"` element whose OWN `source.kind == "sql"`.** Any OTHER
+element — a chart or table sourced FROM that table via `{"kind": "table",
+"elementId": ...}` — must use the source table's own declared `name` as
+the prefix instead (e.g. `[Budget vs. Actual (Custom SQL)/Department]`),
+exactly like any other cross-element reference (`formulas.md`'s existing
+rule; this wasn't a new rule, it was applying the existing rule
+inconsistently).
+
+**Why this went undetected through POST, `validate-spec.py`, AND
+`verify-workbook.sh`:** the wrong prefix does not raise a formula error.
+An aggregate formula (`Sum([Custom SQL/Amount])`) still computes the
+correct GRAND TOTAL even with the wrong prefix — apparently Sigma's
+aggregate-formula compiler resolves the reference through a more
+forgiving path than the raw dimension-passthrough path. A BARE
+(non-aggregated) column reference — a dimension like `Department`, or
+every column on a table with no aggregation at all — silently collapses
+to a single blank/null value instead of erroring. The failure signature,
+confirmed by direct data export (`POST /v2/workbooks/{id}/export` +
+`GET /v2/query/{id}/download`, not just the compiled-SQL check
+`verify-workbook.sh` does):
+- A pivot/grouped table: one row with a BLANK dimension label but the
+  CORRECT grand total, plus a `Total` row repeating the same number —
+  looks exactly like the pre-existing documented "pivot missing
+  rowsBy/columnsBy" trap, but the rowsBy/columnsBy binding was fine.
+- A plain (non-aggregating) table with every column using the wrong
+  prefix: every cell in every row comes back blank.
+- The tell that finally isolated it: the ONE chart in this workbook that
+  used the CORRECT cross-element prefix throughout (Rolling Forecast's
+  charts, sourced from a derived "Book" table via `[Forecast Book/
+  Department]`) rendered perfectly, while every other chart/table/pivot
+  — all using `[Custom SQL/...]` — did not.
+
+**False leads chased before finding this:** a pivot `rowsBy[].sort`
+pointing at a separate dimension column was suspected first (the "Common
+trap" in `specification/tables.md` describes an identical-looking
+symptom for a different cause — a dimension declared in `columns` but
+never bound via `rowsBy`/`columnsBy`). Removing `sort` from both affected
+pivots did NOT fix the collapse — it was a red herring; the real bug was
+the formula prefix underneath, present on pivots AND plain tables AND
+bar charts alike, control-filtered or not.
+
+**Fix:**
+- Every downstream element's formulas now use the source table's actual
+  declared `name` as the prefix, across all three page builders
+  (`build_page1.py`, `build_pl.py`, `build_gl.py` — `build_forecast.py`
+  already did this correctly).
+- `scripts/style.py` now exposes two distinct helpers: `cols()` for a
+  Custom-SQL table's own self-referencing passthrough declarations, and
+  a new `passthrough_cols(names, prefix, source_name, formats=None)` for
+  downstream elements — the function signature itself now forces you to
+  say which source you mean, rather than a single ambiguous helper.
+- **New `validate-spec.py` check, `custom-sql-prefix-off-source`
+  (FAIL-level):** flags `[Custom SQL/...]` on any element whose own
+  `source.kind != "sql"`. This is the single highest-value check added
+  to this validator to date — it would have caught every instance of
+  this bug before POST, across three different page builds, instantly.
+  15 checks total now.
+
+Rule going forward: **`[Custom SQL/...]` is only ever correct inside the
+`columns[]` of the element that literally IS the `kind: "sql"` source.**
+Every other reference to that data — from a chart, pivot, table, KPI, or
+control anywhere else in the workbook — must use `[<source table's
+declared name>/<column>]`. Treat this the same as any other cross-element
+reference rule; there is no such thing as a workbook-wide "Custom SQL"
+alias.
