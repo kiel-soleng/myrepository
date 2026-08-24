@@ -32,9 +32,9 @@ future_months AS (
     FROM TABLE(GENERATOR(ROWCOUNT => 6))
 )
 SELECT
-    fm.period_month,
-    t.department,
-    ROUND(t.trailing_avg, 0) AS base_case   -- seeds the hidden Base Case column; Forecast Entry stays user-editable/blank
+    fm.period_month                       AS "Period Month",
+    t.department                          AS "Department",
+    ROUND(t.trailing_avg, 0)               AS "Base Case"   -- seeds the hidden Base Case column; Forecast Entry stays user-editable/blank
 FROM trailing t
 CROSS JOIN future_months fm
 ORDER BY fm.period_month, t.department

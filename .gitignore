@@ -34,5 +34,9 @@ docs/twells89-review.md
 .vscode/
 *.swp
 
+# Python build scripts' bytecode cache
+__pycache__/
+*.pyc
+
 # Token cache (if anything writes one locally)
 .sigma-token

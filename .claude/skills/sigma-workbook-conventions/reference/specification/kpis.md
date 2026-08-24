@@ -244,14 +244,41 @@ KPIs are intentionally **excluded from `validate-spec.py`'s
 `passthrough-coverage` check** because their col count varies a lot
 based on whether the user wants drill-down support. Use judgment.
 
-## Known limitations
+## Comparison-delta — `comparison` + `comparisonColumn`
 
-- **No `delta` / comparison field on the KPI element.** The spec
-  carries the date-dimension column that *enables* comparison mode;
-  the specific period (vs prior month / quarter / year) is UI-side
-  state and isn't represented in the code spec. To force a specific
-  comparison period, stack two `kpi-chart` elements side-by-side via
-  layout XML.
+**Correction (2026-08-24): a `comparison`/`comparisonColumn` field DOES
+exist and DOES work** — this contradicts an earlier version of this
+section that claimed no such field exists at all. Verified live against
+`api.staging.sigmacomputing.io`:
+
+```json
+{
+  "kind": "kpi-chart",
+  "columns": [
+    { "id": "kv", "name": "Total Actual", "formula": "Sum([Actual Amount])" },
+    { "id": "kv-baseline", "name": "Budget", "formula": "Sum([Budget Amount])" }
+  ],
+  "value": { "columnId": "kv" },
+  "comparison": { "display": "delta", "colorGood": "#3bb5b3", "colorBad": "#ee465c", "fontSize": 14 },
+  "comparisonColumn": { "columnId": "kv-baseline" }
+}
+```
+
+- **`comparisonColumn` is required in practice.** A `comparison` object
+  paired with only a date/period column among the KPI's `columns` — no
+  `comparisonColumn` — is rejected: `comparison.display: requires a
+  comparison column or period comparison on the KPI.` Always pair
+  `comparison` with an explicit `comparisonColumn` pointing at a second,
+  same-format sibling column (typically a baseline/budget/prior-period
+  measure) rather than relying on a bare date column to trigger automatic
+  period comparison.
+- If no natural baseline pairing exists for a given KPI, omit `comparison`
+  entirely — a plain KPI beats a rejected PUT.
+- To force a *specific* comparison period (vs prior month / quarter /
+  year) rather than a baseline sibling, the period itself is still
+  UI-side state not represented in the code spec — stack two `kpi-chart`
+  elements side-by-side via layout XML for that case, per the original
+  guidance this section carried.
 - **No `target` / `goal` field.** To show a value vs. a target,
   build a chart with two columns (value + target) instead.
 

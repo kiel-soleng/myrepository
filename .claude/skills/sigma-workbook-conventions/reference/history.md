@@ -335,3 +335,114 @@ a duplicate.
 Rule going forward: **a `sql`-source `statement` must never end in a
 trailing `;`** — check this explicitly when hand-writing or reviewing
 any Custom SQL source, not just when the linter catches it.
+
+## 2026-08-24 — KPI `comparison` requires an explicit `comparisonColumn`; a period column alone is not enough
+
+Expanding `sigma-office-of-finance` into a 4-page workbook (P&L
+Statement, General Ledger, Rolling Forecast added; Page 1 restyled),
+every `kpi-chart` was built with `comparison: {display: "delta", ...}`
+plus a date/period column among its `columns`, per `sigma-input-table-
+app`'s SKILL.md → "Aesthetics": *"The delta comes from period comparison
+— include a date/time dimension column among the KPI's columns and
+Sigma renders the ▲/▼ vs prior period automatically."*
+
+Live PUT rejected it: `elements[6].comparison.display: requires a
+comparison column or period comparison on the KPI.` A period-only
+`comparison` does not satisfy the live API, contradicting that skill's
+own prose — confirmed live on `api.staging.sigmacomputing.io` 2026-08-24.
+
+Fix: always pair `comparison` with an explicit `comparisonColumn`
+pointing at a second, same-format sibling column (the shape that skill's
+own "Verified shape gotchas" section separately documents as working —
+*"Comparison-delta KPI vs a baseline sibling WORKS via
+`comparisonColumn`... no date column needed"*). Where no natural
+baseline pairing exists for a KPI (e.g. P&L's Gross Margin %), omit
+`comparison` entirely rather than guessing at a pairing — a plain KPI
+beats a rejected PUT. See `sigma-office-of-finance/workbooks/office-of-
+finance/build_page1.py`'s `kpi()` helper for the working pattern
+(`baseline_formula` param, optional).
+
+## 2026-08-24 — `kpi-chart`/chart sourced directly from an `input-table` masks as `Invalid kind: "input-table"`
+
+Building the Rolling Forecast page's KPIs and charts directly against
+the linked `input-table` element — per `sigma-input-table-app`
+SKILL.md's DEFAULT #3, *"Parent the KPIs + charts to the LINKED INPUT
+TABLE... NOT a derived table"* — produced `document.elements[2]: Invalid
+kind: "input-table"` on PUT, pointing at the input-table element itself
+(not at the KPI/chart that actually caused it). Per the project's
+standing "Invalid kind is masked" rule, this was a shape problem, not an
+unsupported-kind problem — but the input-table's own shape was fine in
+isolation (confirmed by removing the downstream elements one at a time).
+
+Root cause, found by reading that skill's *verified example script*
+(`examples/build_demand_planning_lite.py`) instead of trusting its
+prose: the actual working app never sources anything downstream from
+the input table directly. It inserts one plain `table` — literally
+named "Book" in the example, with the comment *"the single downstream
+read surface every chart/KPI uses"* — sourced from the input table
+(`source: {"elementId": "assum3", "kind": "table"}`), redeclaring every
+column the KPIs/charts need with fresh `formula`/`name` pairs. Every
+KPI and chart then sources from that Book table, never from the input
+table.
+
+A second, related correction from the same example: the "verified
+foundation" in that skill's SKILL.md (base → scenario-list input-table →
+cross-join pivot → linked input table) is written for the *multi-
+scenario* case. The example itself proves a much simpler shape works
+fine for a single implicit scenario: the linked input table sources
+directly from a plain per-row base table (`source: {"kind": "linked",
+"from": "srcTbl"}`, no pivot in between) — Rolling Forecast uses this
+simpler form since it has exactly one editable grid, not multiple named
+scenarios.
+
+Also corrected in the same pass: `inputMode: "edit"` (which
+`sigma-office-of-finance/reference/structure.md` previously called
+"Required") makes an input table editable in **draft only** —
+`schema-2026-08-breaking-changes.md`'s own permission table says so
+(`edit` → "Editable in draft"; `view` → "Editable in published version
+(all access levels)"). Since this workbook is PUT straight to its
+published/live state, `inputMode: "view"` is what actually needed to
+be set. The example script's inline comment says exactly this
+(*"inputMode 'view' so it's editable once PUBLISHED, not just in the
+draft editor"*) — it had just gone unread until this incident forced a
+byte-for-byte comparison against working code.
+
+Rule going forward: when a skill's prose and its own shipped, verified
+example disagree, build from the example. Treat "Parent KPIs/charts
+directly to X" instructions with suspicion if no example demonstrates it.
+
+## 2026-08-24 — `bare-ref-resolution` false-positives on linked input-table key-bound columns
+
+Side effect of the incident above: `validate-spec.py`'s `bare-ref-
+resolution` check (regex-based) flagged the Rolling Forecast input
+table's own `Coalesce([Forecast Entry], [Base Case])` formula as an
+unresolved bare reference, because the column it points at (`{"id":
+"fc-base", "key": "base-case"}`) has no explicit `name` field — it
+inherits its display name from the base-table column it's keyed to.
+`verify-workbook.sh` confirmed the formula compiles and resolves fine
+live; the WARN is a known false positive for this one column shape
+(`key`-bound linked-table columns) and not yet worth teaching the
+regex about — read past it for this specific case rather than adding a
+`name` that isn't necessary.
+
+## 2026-08-24 — a specific PUT payload got `cf-mitigated: challenge` (Cloudflare bot-management 403) on every retry; a fresh payload didn't
+
+While debugging the two incidents above, one workbook-name string
+(`"Office of Finance"`, submitted repeatedly across several PUT retries
+while iterating on unrelated content) started getting blocked before
+ever reaching the Sigma API — `cf-mitigated: challenge` in the response
+headers, a Cloudflare-level 403, not a Sigma validation error. Every
+other distinct string tried (including every other workbook/page name
+used this session) went through on the first attempt. Bisecting by
+swapping only the `name` field, keeping everything else byte-identical,
+reproduced the block/no-block split reliably.
+
+This looks like session-local bot-management scoring reacting to
+*repeated* submission of one specific value during heavy iterative
+debugging — not a rule against any particular word or phrase, and not
+reproducible against a fresh value. If a PUT/POST that used to work
+starts coming back as an HTML "Just a moment..." challenge page instead
+of JSON, check `cf-mitigated` in the response headers before assuming
+the spec is wrong: retry with a trivially different `name` (or wait) to
+confirm it's this class of issue before spending time re-debugging spec
+content that was never the problem.

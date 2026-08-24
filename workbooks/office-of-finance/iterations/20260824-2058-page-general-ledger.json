@@ -1,0 +1,415 @@
+{
+  "name": "Office of Finance \u2014 General Ledger (DRAFT)",
+  "folderId": "6dfa8584-aa74-4de6-99cb-ecbbbba668ac",
+  "document": {
+    "schemaVersion": 1,
+    "kind": "workbook",
+    "elements": [
+      {
+        "id": "tbl-gl",
+        "kind": "table",
+        "name": "General Ledger (Custom SQL)",
+        "source": {
+          "connectionId": "a9d45cfe-ff65-4515-8193-a7072602a1ee",
+          "kind": "sql",
+          "statement": "-- Synthetic General Ledger \u2014 journal-entry-line grain, trailing ~4 months.\n-- Distinct from close_exceptions.sql's reconciliation-exception list: this\n-- is transaction detail (one row per debit/credit line), not a punch-list.\n-- Balanced by construction: every entry_id contributes exactly one debit\n-- row and one credit row of equal amount, so Sum(Debit) = Sum(Credit)\n-- across the whole table \u2014 a real trial-balance KPI is meaningful here.\n-- Deterministic (SIN-based amounts, not RANDOM()) so re-running the query\n-- reproduces the same demo data, matching the other sql/*.sql files'\n-- convention. No trailing semicolon (see reference/specification/\n-- sources.md -> \"sql \u2014 custom SQL query\").\nWITH seq AS (\n    SELECT SEQ4() AS i FROM TABLE(GENERATOR(ROWCOUNT => 150))\n),\ndept AS (\n    SELECT * FROM (VALUES\n        (0, 'Sales & Marketing'),\n        (1, 'R&D'),\n        (2, 'G&A'),\n        (3, 'Customer Success')\n    ) AS d(idx, department)\n),\nbase AS (\n    SELECT\n        seq.i AS i,\n        DATEADD('day', MOD(seq.i * 7, 111), DATE '2026-05-01') AS entry_date,\n        MOD(seq.i, 5) AS pattern,\n        d.department AS department,\n        ROUND(3500 + 2500 * ABS(SIN(seq.i * 0.37)), 0) AS base_amount\n    FROM seq\n    JOIN dept d ON d.idx = MOD(seq.i, 4)\n),\nje AS (\n    -- pattern 0: revenue recognition -- Dr Accounts Receivable / Cr Product Revenue\n    SELECT i, entry_date, 'Revenue' AS category, ROUND(base_amount * 4, 0) AS amt,\n           'Accounts Receivable' AS debit_account, 'Product Revenue' AS credit_account,\n           'Invoice \u2014 subscription revenue' AS description\n    FROM base WHERE pattern = 0\n    UNION ALL\n    -- pattern 1: cash collection -- Dr Cash / Cr Accounts Receivable\n    SELECT i, entry_date, 'Revenue', ROUND(base_amount * 3.6, 0),\n           'Cash', 'Accounts Receivable', 'Customer payment received'\n    FROM base WHERE pattern = 1\n    UNION ALL\n    -- pattern 2: payroll -- Dr Compensation Expense (dept) / Cr Cash\n    SELECT i, entry_date, department, ROUND(base_amount * 6, 0),\n           department || ' \u2014 Compensation Expense', 'Cash', 'Payroll run'\n    FROM base WHERE pattern = 2\n    UNION ALL\n    -- pattern 3: vendor expense -- Dr Opex (dept) / Cr Accounts Payable\n    SELECT i, entry_date, department, base_amount,\n           department || ' \u2014 Vendor Expense', 'Accounts Payable', 'Vendor invoice'\n    FROM base WHERE pattern = 3\n    UNION ALL\n    -- pattern 4: AP payment -- Dr Accounts Payable / Cr Cash\n    SELECT i, entry_date, department, ROUND(base_amount * 0.9, 0),\n           'Accounts Payable', 'Cash', 'Vendor payment'\n    FROM base WHERE pattern = 4\n),\nje_id AS (\n    SELECT 'JE-' || LPAD(i + 1, 5, '0') AS entry_id, entry_date, category, amt,\n           debit_account, credit_account, description\n    FROM je\n)\nSELECT\n    entry_id       AS \"Entry ID\",\n    entry_date     AS \"Entry Date\",\n    category       AS \"Category\",\n    debit_account  AS \"Account\",\n    description    AS \"Description\",\n    amt            AS \"Debit\",\n    0               AS \"Credit\"\nFROM je_id\nUNION ALL\nSELECT\n    entry_id, entry_date, category, credit_account, description, 0, amt\nFROM je_id\nORDER BY \"Entry Date\", \"Entry ID\"\n"
+        },
+        "columns": [
+          {
+            "id": "gl-col-0",
+            "formula": "[Custom SQL/Entry ID]",
+            "name": "Entry ID"
+          },
+          {
+            "id": "gl-col-1",
+            "formula": "[Custom SQL/Entry Date]",
+            "name": "Entry Date"
+          },
+          {
+            "id": "gl-col-2",
+            "formula": "[Custom SQL/Category]",
+            "name": "Category"
+          },
+          {
+            "id": "gl-col-3",
+            "formula": "[Custom SQL/Account]",
+            "name": "Account"
+          },
+          {
+            "id": "gl-col-4",
+            "formula": "[Custom SQL/Description]",
+            "name": "Description"
+          },
+          {
+            "id": "gl-col-5",
+            "formula": "[Custom SQL/Debit]",
+            "name": "Debit"
+          },
+          {
+            "id": "gl-col-6",
+            "formula": "[Custom SQL/Credit]",
+            "name": "Credit"
+          }
+        ]
+      },
+      {
+        "id": "gl-container-header",
+        "kind": "container",
+        "style": {
+          "backgroundColor": "#1e3558",
+          "borderRadius": "round"
+        }
+      },
+      {
+        "id": "gl-text-title",
+        "kind": "text",
+        "body": "# **<span style=\"color: #ffffff\">General Ledger \u2014 FY26</span>**\n\n<p class=\"p-small\"><span style=\"color: #ffffff\">Trailing ~4 months of journal-entry detail</span></p>",
+        "verticalAlign": "middle"
+      },
+      {
+        "kind": "control",
+        "id": "gl-ctrl-category",
+        "controlId": "GL-Category",
+        "controlType": "list",
+        "name": "Category",
+        "mode": "include",
+        "selectionMode": "multiple",
+        "values": [],
+        "source": {
+          "kind": "source",
+          "source": {
+            "kind": "table",
+            "elementId": "tbl-gl"
+          },
+          "columnId": "gl-col-2"
+        },
+        "filters": [
+          {
+            "source": {
+              "kind": "table",
+              "elementId": "tbl-gl"
+            },
+            "columnId": "gl-col-2"
+          }
+        ],
+        "style": {
+          "backgroundColor": "#ffffff",
+          "borderRadius": "pill"
+        }
+      },
+      {
+        "kind": "control",
+        "id": "gl-ctrl-account",
+        "controlId": "GL-Account",
+        "controlType": "list",
+        "name": "Account",
+        "mode": "include",
+        "selectionMode": "multiple",
+        "values": [],
+        "source": {
+          "kind": "source",
+          "source": {
+            "kind": "table",
+            "elementId": "tbl-gl"
+          },
+          "columnId": "gl-col-3"
+        },
+        "filters": [
+          {
+            "source": {
+              "kind": "table",
+              "elementId": "tbl-gl"
+            },
+            "columnId": "gl-col-3"
+          }
+        ],
+        "style": {
+          "backgroundColor": "#ffffff",
+          "borderRadius": "pill"
+        }
+      },
+      {
+        "id": "gl-container-kpi-row",
+        "kind": "container"
+      },
+      {
+        "id": "gl-kpi-debits",
+        "kind": "kpi-chart",
+        "name": {
+          "text": "Total Debits",
+          "fontSize": 16,
+          "color": "#1e3558"
+        },
+        "source": {
+          "kind": "table",
+          "elementId": "tbl-gl"
+        },
+        "columns": [
+          {
+            "id": "gl-kpi-debits-value",
+            "name": "Total Debits",
+            "formula": "Sum([Custom SQL/Debit])",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          },
+          {
+            "id": "gl-kpi-debits-baseline",
+            "name": "Credits",
+            "formula": "Sum([Custom SQL/Credit])",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          }
+        ],
+        "value": {
+          "columnId": "gl-kpi-debits-value",
+          "fontSize": 32
+        },
+        "style": {
+          "backgroundColor": "#ffffff",
+          "borderRadius": "pill",
+          "borderColor": "#1e3558",
+          "borderWidth": 2
+        },
+        "comparison": {
+          "display": "delta",
+          "colorGood": "#3bb5b3",
+          "colorBad": "#ee465c",
+          "fontSize": 14
+        },
+        "comparisonColumn": {
+          "columnId": "gl-kpi-debits-baseline"
+        }
+      },
+      {
+        "id": "gl-kpi-credits",
+        "kind": "kpi-chart",
+        "name": {
+          "text": "Total Credits",
+          "fontSize": 16,
+          "color": "#1e3558"
+        },
+        "source": {
+          "kind": "table",
+          "elementId": "tbl-gl"
+        },
+        "columns": [
+          {
+            "id": "gl-kpi-credits-value",
+            "name": "Total Credits",
+            "formula": "Sum([Custom SQL/Credit])",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          }
+        ],
+        "value": {
+          "columnId": "gl-kpi-credits-value",
+          "fontSize": 32
+        },
+        "style": {
+          "backgroundColor": "#f7f7f7",
+          "borderRadius": "pill",
+          "borderColor": "#e3e3e3",
+          "borderWidth": 1
+        }
+      },
+      {
+        "id": "gl-kpi-net",
+        "kind": "kpi-chart",
+        "name": {
+          "text": "Net (Dr \u2212 Cr)",
+          "fontSize": 16,
+          "color": "#1e3558"
+        },
+        "source": {
+          "kind": "table",
+          "elementId": "tbl-gl"
+        },
+        "columns": [
+          {
+            "id": "gl-kpi-net-value",
+            "name": "Net (Dr \u2212 Cr)",
+            "formula": "Sum([Custom SQL/Debit]) - Sum([Custom SQL/Credit])",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          }
+        ],
+        "value": {
+          "columnId": "gl-kpi-net-value",
+          "fontSize": 32
+        },
+        "style": {
+          "backgroundColor": "#f7f7f7",
+          "borderRadius": "pill",
+          "borderColor": "#e3e3e3",
+          "borderWidth": 1
+        }
+      },
+      {
+        "id": "gl-kpi-count",
+        "kind": "kpi-chart",
+        "name": {
+          "text": "Entry Lines",
+          "fontSize": 16,
+          "color": "#1e3558"
+        },
+        "source": {
+          "kind": "table",
+          "elementId": "tbl-gl"
+        },
+        "columns": [
+          {
+            "id": "gl-kpi-count-value",
+            "name": "Entry Lines",
+            "formula": "Count([Custom SQL/Entry ID])",
+            "format": {
+              "kind": "number",
+              "formatString": ",.0f"
+            }
+          }
+        ],
+        "value": {
+          "columnId": "gl-kpi-count-value",
+          "fontSize": 32
+        },
+        "style": {
+          "backgroundColor": "#f7f7f7",
+          "borderRadius": "pill",
+          "borderColor": "#e3e3e3",
+          "borderWidth": 1
+        }
+      },
+      {
+        "id": "pivot-gl-trial-balance",
+        "kind": "pivot-table",
+        "name": "Trial Balance by Account",
+        "source": {
+          "kind": "table",
+          "elementId": "tbl-gl"
+        },
+        "columns": [
+          {
+            "id": "tb-account",
+            "name": "Account",
+            "formula": "[Custom SQL/Account]"
+          },
+          {
+            "id": "tb-debit",
+            "name": "Total Debit",
+            "formula": "Sum([Custom SQL/Debit])",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          },
+          {
+            "id": "tb-credit",
+            "name": "Total Credit",
+            "formula": "Sum([Custom SQL/Credit])",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          },
+          {
+            "id": "tb-net",
+            "name": "Net",
+            "formula": "Sum([Custom SQL/Debit]) - Sum([Custom SQL/Credit])",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          }
+        ],
+        "rowsBy": [
+          {
+            "id": "tb-account",
+            "sort": {
+              "by": "tb-debit",
+              "direction": "descending"
+            }
+          }
+        ],
+        "columnsBy": [],
+        "values": [
+          "tb-debit",
+          "tb-credit",
+          "tb-net"
+        ]
+      },
+      {
+        "id": "table-gl-detail",
+        "kind": "table",
+        "name": "Journal Entry Detail",
+        "source": {
+          "kind": "table",
+          "elementId": "tbl-gl"
+        },
+        "columns": [
+          {
+            "id": "dt-date",
+            "name": "Entry Date",
+            "formula": "[Custom SQL/Entry Date]",
+            "format": {
+              "kind": "datetime",
+              "formatString": "%b %d, %Y"
+            }
+          },
+          {
+            "id": "dt-id",
+            "name": "Entry ID",
+            "formula": "[Custom SQL/Entry ID]"
+          },
+          {
+            "id": "dt-category",
+            "name": "Category",
+            "formula": "[Custom SQL/Category]"
+          },
+          {
+            "id": "dt-account",
+            "name": "Account",
+            "formula": "[Custom SQL/Account]"
+          },
+          {
+            "id": "dt-description",
+            "name": "Description",
+            "formula": "[Custom SQL/Description]"
+          },
+          {
+            "id": "dt-debit",
+            "name": "Debit",
+            "formula": "[Custom SQL/Debit]",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          },
+          {
+            "id": "dt-credit",
+            "name": "Credit",
+            "formula": "[Custom SQL/Credit]",
+            "format": {
+              "kind": "number",
+              "formatString": "$,.0f"
+            }
+          }
+        ]
+      }
+    ],
+    "pages": [
+      {
+        "id": "page-general-ledger",
+        "name": "General Ledger",
+        "pageWidth": "large"
+      }
+    ],
+    "layout": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Page type=\"grid\" gridTemplateColumns=\"repeat(24, 1fr)\" gridTemplateRows=\"auto\" id=\"page-general-ledger\">\n  <Container elementId=\"gl-container-header\" type=\"grid\" gridColumn=\"1 / 25\" gridRow=\"1 / 4\" gridTemplateColumns=\"repeat(24, 1fr)\" gridTemplateRows=\"auto\">\n    <Element elementId=\"gl-text-title\" gridColumn=\"1 / 13\" gridRow=\"1 / 4\"/>\n    <Element elementId=\"gl-ctrl-category\" gridColumn=\"13 / 19\" gridRow=\"1 / 4\"/>\n    <Element elementId=\"gl-ctrl-account\" gridColumn=\"19 / 25\" gridRow=\"1 / 4\"/>\n  </Container>\n  <Container elementId=\"gl-container-kpi-row\" type=\"grid\" gridColumn=\"1 / 25\" gridRow=\"4 / 12\" gridTemplateColumns=\"repeat(24, 1fr)\" gridTemplateRows=\"auto\">\n    <Element elementId=\"gl-kpi-debits\" gridColumn=\"1 / 7\" gridRow=\"1 / 9\"/>\n    <Element elementId=\"gl-kpi-credits\" gridColumn=\"7 / 13\" gridRow=\"1 / 9\"/>\n    <Element elementId=\"gl-kpi-net\" gridColumn=\"13 / 19\" gridRow=\"1 / 9\"/>\n    <Element elementId=\"gl-kpi-count\" gridColumn=\"19 / 25\" gridRow=\"1 / 9\"/>\n  </Container>\n  <Element elementId=\"pivot-gl-trial-balance\" gridColumn=\"1 / 25\" gridRow=\"12 / 30\"/>\n  <Element elementId=\"table-gl-detail\" gridColumn=\"1 / 25\" gridRow=\"30 / 58\"/>\n  <Element elementId=\"tbl-gl\" gridColumn=\"1 / 25\" gridRow=\"58 / 72\"/>\n</Page>"
+  }
+}

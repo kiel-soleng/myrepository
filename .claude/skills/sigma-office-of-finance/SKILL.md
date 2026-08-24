@@ -44,18 +44,27 @@ Defer to **sigma-workbook-conventions** for element naming/layout mechanics
 and **sigma-data-models** for field-level mechanics — this skill only adds
 the finance-domain structure on top.
 
-## The three pages
+## The pages
 
 | # | Page | Pattern source | Status |
 |---|------|-----------------|--------|
-| 1 | FP&A Budget vs. Actual & Variance | new (this skill) | POSTed + compile-verified 2026-08-21 (`workbooks/office-of-finance/`); not yet visually verified or promoted to `examples/` |
-| 2 | Financial Close / Reconciliation | new (this skill) | drafted, not yet exemplar-verified |
-| 3 | Rolling Forecast | composes `sigma-input-table-app` scenario-modeler pattern | drafted, not yet exemplar-verified |
+| 1 | FP&A Budget vs. Actual & Variance | new (this skill) | PUT + compile-verified 2026-08-24, restyled (`workbooks/office-of-finance/build_page1.py`); not yet visually verified or promoted to `examples/` |
+| 2 | P&L Statement | new (this skill) | PUT + compile-verified 2026-08-24 (`build_pl.py`); not yet visually verified |
+| 3 | General Ledger | new (this skill) | PUT + compile-verified 2026-08-24 (`build_gl.py`); not yet visually verified |
+| 4 | Rolling Forecast — "the forecasting module" | linked-input-table pattern from `sigma-input-table-app` (now ported into this repo) | PUT + compile-verified 2026-08-24 (`build_forecast.py`); builds the core seeded-Base-Case + editable grid + comparative-KPI loop, not the full scenario create/submit/approve modal lifecycle; not yet visually verified |
+| — | Financial Close / Reconciliation | new (this skill) | drafted in `reference/structure.md`, no build script yet — deprioritized in the 2026-08-24 build, see `workbooks/office-of-finance/notes.md` → "Open decisions" |
 
-None of these have a round-tripped `examples/exemplar-spec.json` yet — see
-`examples/README.md`. Treat everything here as a strong first draft to POST,
-GET-back, visually verify, and correct per the iteration playbook, not as
-pre-verified fact the way `sigma-company-dashboard-v2`'s HANDOFF.md is.
+All 4 built pages live in **one** workbook (`workbookId
+759ddb59-8b5c-4d80-a431-fe24773c483d`), assembled by
+`workbooks/office-of-finance/build_workbook.py`. None of them have a
+round-tripped `examples/exemplar-spec.json` yet — see `examples/README.md`.
+Treat everything here as a strong first draft to POST, GET-back, visually
+verify, and correct per the iteration playbook, not as pre-verified fact
+the way `sigma-company-dashboard-v2`'s HANDOFF.md is (and note: this skill
+deliberately does NOT reuse `sigma-company-dashboard-v2` — its brand/logo/
+gradient system and 14 hardcoded companies turned out to be bank/lending-
+specific, not reusable for P&L/GL/forecast pages; the aesthetic system here
+comes from `sigma-input-table-app` instead — see `scripts/style.py`).
 
 ## Non-negotiable DEFAULTS — build these every time
 
