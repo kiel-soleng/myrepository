@@ -35,3 +35,6 @@ docs/twells89-review.md
 
 # Token cache (if anything writes one locally)
 .sigma-token
+__pycache__/
+.claude/skills/sigma-company-dashboard-v2/shots/
+.claude/skills/sigma-company-dashboard-v2/specs/
