@@ -2957,15 +2957,16 @@ COMPANIES["pura"] = PURA
 #   units_base    -> engaged audience (viewers / subscribers / attendees, K)
 #   shock         -> a media rate / CPM shock in the scenario modeler
 #
-# Palette sampled from documented (non-official but widely cross-referenced)
-# Disney brand color references -- Marine Navy / Soft Navy Blue / Impact Blue
-# from the classic Disney Pictures identity, Millie gold as the warm accent.
-# No official Disney brand-guideline hex list is public, so treat these as
-# illustrative, not authoritative. No logo asset is included in this build --
-# the fetch-and-recolor pipeline (fetch_logo.py) lives outside this skill
-# folder and wasn't imported, so the header uses styled wordmark text instead
-# of a fetched/recolored logo image, per HANDOFF.md's "say so, don't
-# hand-draw a wordmark."
+# Palette re-sampled 2026-08-26 directly from thewaltdisneycompany.com's own
+# CSS (app/themes/twdcus/assets/dist/css/main.*.css) rather than the earlier
+# "documented but not official" guess -- #12194A is literally their button/
+# icon accent color, #081351 their active-state navy, #FAF9F6 their card/
+# modal background. No gold/teal accent appears anywhere on the corporate
+# site (that combination belongs to Parks/consumer sub-brands, not
+# thewaltdisneycompany.com), so this build keeps the whole system in the
+# real navy family instead of inventing a warm accent. Logo asset IS present
+# (assets/disney_logo_white.svg, the real 2012-present wordmark, recoloured
+# white) and wired through the shared header()/B.logo_white() path.
 # ---------------------------------------------------------------------------
 DISNEY = {
     "key": "disney",
@@ -2977,9 +2978,15 @@ DISNEY = {
     "logo_domain": "thewaltdisneycompany.com",
     "base_table": "Marketing Performance Ledger",
     "palette": {
-        "navy": "#12194A", "navy_deep": "#080D2E",
-        "primary": "#113CCF", "secondary": "#393E8F",
-        "accent": "#F3CC64", "mint": "#00B2A9",
+        # A single navy-to-sky-blue ramp (darkest -> lightest: navy, primary,
+        # secondary, accent, mint) instead of the old gold/teal/purple grab-bag
+        # -- reads as one deliberate system on the KPI row and header, and
+        # still has enough lightness spread to stay distinguishable as
+        # categorical chart colors (5 segments: Linear Networks, DTC, Content,
+        # Sports, Experiences).
+        "navy": "#12194A", "navy_deep": "#081351",
+        "primary": "#1B4574", "secondary": "#3D6BA8",
+        "accent": "#6B93C7", "mint": "#9DBBDF",
     },
     "products": [
         # name, order, balance_type, bal_base, yield, funding, fee_base,
