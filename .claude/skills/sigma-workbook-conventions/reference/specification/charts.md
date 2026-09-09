@@ -1,9 +1,26 @@
 # Charts
 
+> ⚠️ **2026-09-09 drift — `donut-chart`, `pie-chart`, `scatter-chart`,
+> `area-chart` all rejected** (`Invalid kind: "donut-chart"` etc.) on a
+> staging tenant, confirmed via direct probing. No workbook harvested
+> in that session (across 4 real production workbooks) used any of
+> these four kinds either. **Confirmed-working chart kinds on that
+> tenant:** `bar-chart`, `line-chart`, `waterfall-chart`, `kpi-chart`,
+> `pivot-table`, `region-map`. Treat the recipes below for
+> `donut-chart`/`pie-chart`/`scatter-chart`/`area-chart` as **historical
+> reference only** until re-verified on your org — before relying on
+> any of the four, probe with a minimal single-element workbook first
+> (see `reference/history.md` → "2026-09-09"). Cheap substitutes that
+> worked: donut/pie → horizontal `bar-chart` (dimension on `xAxis`,
+> count/sum on `yAxis`); scatter (per-row x/y) → aggregate first, then
+> a `bar-chart` with two `yAxis` columns (e.g. actual vs. target) if a
+> true per-row scatter isn't essential to the ask.
+
 Chart element kinds: `bar-chart`, `line-chart`, `area-chart`,
-`combo-chart`, `scatter-chart`, `pie-chart`, `donut-chart`. This file
-is a recipe book for chart specs and the style choices that go with
-each kind.
+`combo-chart`, `scatter-chart`, `pie-chart`, `donut-chart`,
+`waterfall-chart`. This file is a recipe book for chart specs and the
+style choices that go with each kind — but see the drift warning above
+before assuming every kind listed here still POSTs on your tenant.
 
 ```bash
 jq '.components.schemas.LineChart, .components.schemas.BarChart, .components.schemas.AreaChart, .components.schemas.ComboChart, .components.schemas.ScatterChart, .components.schemas.PieChart, .components.schemas.DonutChart' /tmp/sigma-api.json

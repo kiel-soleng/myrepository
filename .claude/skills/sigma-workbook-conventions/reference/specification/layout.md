@@ -83,32 +83,46 @@ sets the KPI content's vertical anchor within its allocated cell.
 
 ## Two-tag grammar
 
+> ⚠️ **2026-09-09 drift — tags renamed.** `<GridContainer>` and
+> `<LayoutElement>` (used throughout this skill's history and older
+> exemplars) are **rejected** on the current API:
+> `Layout XML: unknown element <LayoutElement> at layout.pages[0].elements[0] (expected Element, Container, or TabbedContainer)`.
+> The current tag names are **`<Container>`** (was `<GridContainer>`)
+> and **`<Element>`** (was `<LayoutElement>`) — same attributes,
+> just renamed. Verified against real harvested workbooks. A third
+> tag, `<TabbedContainer>`, also exists (not yet documented here — see
+> a harvested workbook's `layout` for its shape when needed). Older
+> exemplar JSON files in this skill's `examples/` still show the old
+> tag names in their `layout` strings; don't copy those verbatim
+> without renaming.
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <Page type="grid" gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto" id="<pageId>">
-  <GridContainer elementId="<containerId>" type="grid" gridColumn="1 / 25" gridRow="1 / 4"
-                 gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto">
-    <LayoutElement elementId="<childId>" gridColumn="1 / 13" gridRow="1 / 4"/>
-  </GridContainer>
-  <LayoutElement elementId="<elementId>" gridColumn="1 / 25" gridRow="4 / 16"/>
+  <Container elementId="<containerId>" type="grid" gridColumn="1 / 25" gridRow="1 / 4"
+             gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto">
+    <Element elementId="<childId>" gridColumn="1 / 13" gridRow="1 / 4"/>
+  </Container>
+  <Element elementId="<elementId>" gridColumn="1 / 25" gridRow="4 / 16"/>
 </Page>
 ```
 
 Each `<Page id>` matches a `pages[].id`. Each `elementId` matches an
-element on that page. `gridColumn` / `gridRow` use standard CSS grid
-line syntax (`start / end`); the default grid is **24 columns wide**.
+element on that page (via the element's `pageId`, current API — see
+`schema.md`). `gridColumn` / `gridRow` use standard CSS grid line
+syntax (`start / end`); the default grid is **24 columns wide**.
 
-## `<GridContainer>` vs `<LayoutElement>` — silent failure
+## `<Container>` vs `<Element>` — silent failure
 
-> ⚠️ Use `<GridContainer>` for any tag that has children nested
-> inside it. `<LayoutElement type="grid">` with children parses
-> successfully **as a leaf** and the children are silently dropped —
-> no error, the child elements just disappear from the page.
+> ⚠️ Use `<Container>` for any tag that has children nested inside it.
+> `<Element type="grid">` with children parses successfully **as a
+> leaf** and the children are silently dropped — no error, the child
+> elements just disappear from the page.
 
-- `<LayoutElement elementId="X" .../>` — **leaf**. Positions a single
+- `<Element elementId="X" .../>` — **leaf**. Positions a single
   element. No children.
-- `<GridContainer elementId="X" ...>...</GridContainer>` — **container**.
-  Wraps child `<LayoutElement>`s inside its own inner grid.
+- `<Container elementId="X" ...>...</Container>` — **container**.
+  Wraps child `<Element>`s inside its own inner grid.
 
 `scripts/validate-spec.py`'s `layout-element-ids` check catches some
 layout-XML issues pre-POST but does NOT detect `<LayoutElement>`-
@@ -130,13 +144,13 @@ not from the container's `gridTemplateRows`. Two patterns work:
 Children share the container's row range, differ by `gridColumn`:
 
 ```xml
-<GridContainer elementId="kpi-row" type="grid"
+<Container elementId="kpi-row" type="grid"
                gridColumn="1 / 25" gridRow="1 / 4"
                gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto">
-  <LayoutElement elementId="kpi-1" gridColumn="1 / 9"   gridRow="1 / 4"/>
-  <LayoutElement elementId="kpi-2" gridColumn="9 / 17"  gridRow="1 / 4"/>
-  <LayoutElement elementId="kpi-3" gridColumn="17 / 25" gridRow="1 / 4"/>
-</GridContainer>
+  <Element elementId="kpi-1" gridColumn="1 / 9"   gridRow="1 / 4"/>
+  <Element elementId="kpi-2" gridColumn="9 / 17"  gridRow="1 / 4"/>
+  <Element elementId="kpi-3" gridColumn="17 / 25" gridRow="1 / 4"/>
+</Container>
 ```
 
 ### Stacked rows inside a container
@@ -146,14 +160,14 @@ container's outer `gridRow` to encompass its children — declare
 generously and let normalization clamp:
 
 ```xml
-<GridContainer elementId="header-row" type="grid"
+<Container elementId="header-row" type="grid"
                gridColumn="1 / 25" gridRow="1 / 12"
                gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto">
-  <LayoutElement elementId="title"  gridColumn="1 / 25" gridRow="1 / 4"/>
-  <LayoutElement elementId="kpi-1"  gridColumn="1 / 9"  gridRow="4 / 12"/>
-  <LayoutElement elementId="kpi-2"  gridColumn="9 / 17" gridRow="4 / 12"/>
-  <LayoutElement elementId="kpi-3"  gridColumn="17 / 25" gridRow="4 / 12"/>
-</GridContainer>
+  <Element elementId="title"  gridColumn="1 / 25" gridRow="1 / 4"/>
+  <Element elementId="kpi-1"  gridColumn="1 / 9"  gridRow="4 / 12"/>
+  <Element elementId="kpi-2"  gridColumn="9 / 17" gridRow="4 / 12"/>
+  <Element elementId="kpi-3"  gridColumn="17 / 25" gridRow="4 / 12"/>
+</Container>
 ```
 
 Use stacked rows when you want a section header above a row of

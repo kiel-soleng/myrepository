@@ -254,3 +254,63 @@ Rules going forward:
   HTML stops triggering false positives.
 - `scripts/api/harvest-workbook.sh` → fail-fast on `service_error`
   responses with diagnostic message + cleanup of bogus spec.json.
+
+## 2026-09-09 — Workbook-spec envelope drift (document wrapper, flat elements, layout tag rename, Custom SQL prefix)
+
+First build-mode session on a fresh staging tenant (UCSC student-progress
+tracker, synthetic `sql`-source data, no data model). The plan-approved
+spec followed this skill's documented shapes exactly and was rejected by
+`POST /v2/workbooks/spec` with a ~20KB union-type validation error. Bisected
+via minimal single-element probe workbooks + GET-spec on 4 real production
+workbooks already in the org (SoFi, Risepoint, Casa command-center builds).
+Six confirmed drifts, none reflected in this skill before today:
+
+1. **Top-level envelope changed.** `{name, folderId, schemaVersion, pages,
+   layout}` (flat) → `{name, folderId, document: {schemaVersion,
+   kind: "workbook", pages, elements, layout}}` (wrapped). See
+   `reference/specification/schema.md` → "Top-level object."
+2. **`pages[].elements` removed** — rejected with `document.pages[].elements
+   is no longer supported. Move elements to document.elements instead.`
+   Elements are now one flat `document.elements` array; each element
+   carries a `pageId`. Declaration order doesn't need to match dependency
+   order (verified: real workbooks source-table elements 150+ positions
+   after their first referencing KPI).
+3. **Layout XML tags renamed.** `<GridContainer>` → `<Container>`,
+   `<LayoutElement>` → `<Element>`; a third tag `<TabbedContainer>` also
+   exists. Same attributes. See `reference/specification/layout.md`.
+4. **`donut-chart`, `pie-chart`, `scatter-chart`, `area-chart` rejected**
+   (`Invalid kind: "donut-chart"`) — not present in any of the 4 harvested
+   real workbooks either. Confirmed-working: `bar-chart`, `line-chart`,
+   `waterfall-chart`, `kpi-chart`, `pivot-table`, `region-map`. See
+   `reference/specification/charts.md`.
+5. **`format.kind: "date"` invalid** — use `"datetime"` even for date-only
+   columns. Surfaces as a generic `Invalid kind: "table"` on the *parent*
+   element, not a field-level error — very hard to isolate without
+   bisection. See `reference/specification/formatting.md`.
+6. **`sql`-source columns resolve via the literal prefix `[Custom SQL/...]`**,
+   not the element's own `name` (every other source kind uses the
+   element's `name`). Resolution is exact-string-match against the SQL's
+   output alias — quoting the alias as the exact desired display name
+   (`AS "Student Id"`) sidesteps any friendly-casing guesswork; an
+   unquoted snake_case alias must be referenced in its raw form
+   (`student_id`, not `Student Id`). See `reference/specification/sources.md`
+   → "`sql` — custom SQL query."
+
+Also found, not fixed further (worked around instead): `document.
+themeOverrides` → `document.settings.theme.overrides` (richer object,
+exact shape only partially confirmed); a `table` element with
+`visibleAsSource` or `description` fields fails the same generic
+`Invalid kind: "table"` error as the date-format bug above — removed
+rather than root-caused (neither field was load-bearing for this build).
+
+**Diagnostic method that worked:** GET-spec on real existing workbooks
+and diff structurally against the failing spec — far faster than parsing
+the giant union-type error dump from a totally-wrong top-level envelope.
+Minimal single-element probe workbooks (created via POST, several ended
+up needing DELETE afterward — `DELETE /v2/files/{inodeId}`, NOT
+`/v2/workbooks/{workbookId}` which has no delete method) let each
+hypothesis get tested in isolation cheaply.
+
+Final workbook POSTed clean and passed `verify-workbook.sh` 27/27 after
+all six fixes applied. See `workbooks/ucsc-student-progress/notes.md` for
+the build-specific log.

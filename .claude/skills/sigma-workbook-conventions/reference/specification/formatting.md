@@ -63,6 +63,12 @@ for most cases. See `reference/history.md` → "2026-05-18 — Column
 
 ## Datetime formats
 
+> ⚠️ **`format.kind: "date"` is invalid** — confirmed 2026-09-09,
+> rejected with a generic `Invalid kind: "table"` on the *parent*
+> element (not a helpful field-level error). Use `"datetime"` for
+> every date/time column, even date-only (no time-of-day) values —
+> there is no separate `"date"` kind.
+
 ```json
 {
   "kind": "datetime",

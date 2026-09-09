@@ -198,12 +198,74 @@ These exist but are less common; model the shape off an existing
 workbook's spec via
 `scripts/api/publish-workbook.sh get-spec <wb-id>`:
 
-- `sql` — custom SQL query. Inspect via `jq
-  '.components.schemas.SqlSource' /tmp/sigma-api.json`.
+- `sql` — custom SQL query. See below — verified 2026-09-09,
+  round-trips cleanly.
 - `transpose` — transposes rows/columns.
 
-Document the shape in this skill if you encounter a real example
-that round-trips cleanly.
+### `sql` — custom SQL query (verified 2026-09-09)
+
+```json
+{
+  "kind": "sql",
+  "connectionId": "<conn-uuid>",
+  "statement": "SELECT ... AS \"Student Id\", ... FROM ..."
+}
+```
+
+Confirmed against Sigma's published data-model OpenAPI
+(`CreateDataModelSpecPagesItemsElementsItemsOneOf0Source2` in
+`https://help.sigmacomputing.com/openapi/code-representation.json`)
+and against a live workbook POST — same 3-field shape on both the
+workbook and data-model endpoints.
+
+**⚠️ Column-reference prefix is the literal string `Custom SQL` — NOT
+the element's own `name`.** This is the one source kind that breaks
+the "prefix = element's `name`" pattern every other kind follows.
+Verified by bisecting a real POST failure (`Dependency not found:
+'students/student id'` when using the element's own name as prefix)
+against a harvested real workbook, whose `sql`-sourced table's own
+columns all reference `[Custom SQL/<Column>]` regardless of what the
+table element itself is named:
+
+```json
+{
+  "id": "tbl-students",
+  "kind": "table",
+  "name": "Students",
+  "source": { "kind": "sql", "connectionId": "<conn-uuid>", "statement": "SELECT 'S00001' AS \"Student Id\"" },
+  "columns": [
+    { "id": "st-student-id", "name": "Student Id", "formula": "[Custom SQL/Student Id]" }
+  ]
+}
+```
+
+Downstream elements that source **from this table** (via
+`{kind: "table", elementId: "tbl-students"}`) still use the table's own
+`name` as normal — `[Students/Student Id]` — only the base table's
+*own* passthrough columns need the `Custom SQL` prefix.
+
+**Column-name resolution is exact-match, not friendly-cased.** Unlike
+`warehouse-table` (which friendly-cases `student_id` → `Student Id`
+for you), a `sql` source's columns resolve by **exact string match**
+against the SQL's own output alias:
+
+- Quote the SQL alias exactly as the desired display name —
+  `AS "Student Id"` — and reference it verbatim: `[Custom SQL/Student Id]`.
+  This is the recommended pattern; no normalization to reason about.
+- An unquoted snake_case alias (`AS student_id`) must be referenced in
+  its **raw, exact form**: `[Custom SQL/student_id]`. Referencing it as
+  a friendly-cased `[Custom SQL/Student Id]` **fails** even though the
+  same friendly-casing works fine for `warehouse-table`/`data-model`/
+  `table` sources. Single-word aliases (`college`) seem to resolve
+  case-insensitively either way (`College` or `college` both worked in
+  testing) — but don't rely on that for multi-word names; the space in
+  a friendly-cased multi-word reference doesn't exist in a snake_case
+  raw name, so the two never actually match once there's an underscore
+  involved.
+
+See `reference/history.md` → "2026-09-09" for the full diagnostic
+trail (the failure surfaces as a generic `Dependency not found` error
+with no hint that it's a prefix or casing problem).
 
 ---
 
