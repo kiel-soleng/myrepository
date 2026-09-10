@@ -44,14 +44,35 @@ Position via `<Element>` with a thin `gridRow` (horizontal) or
 
 ## Image
 
-Embeds an external image by URL. Hosted images only — uploads aren't
-supported via the spec.
+Embeds an external image by URL — a hosted HTTPS URL or an inline
+`data:image/...;base64,...` data-URI (verified working for both PNG
+logos and inline SVG icons). Uploads aren't supported via the spec.
+
+> ⚠️ **2026-09-10 drift.** Flat `url` is response-only / legacy — GET-spec
+> on real harvested workbooks shows `"url": null` alongside the real
+> value nested under `source`. Writing flat `url` is unconfirmed-risky;
+> use the nested `source` form, same shape as `container.backgroundImage`
+> (see `containers.md`):
 
 ```json
 {
   "id": "logo",
   "kind": "image",
-  "url": "https://cdn.example.com/team-logo.png"
+  "source": { "kind": "url", "url": "https://cdn.example.com/team-logo.png" }
+}
+```
+
+Inline icon example (verified against a real harvested workbook, a
+lucide-style 24×24 stroke SVG as a data-URI):
+
+```json
+{
+  "id": "ico-trend",
+  "kind": "image",
+  "source": {
+    "kind": "url",
+    "url": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDc0RjUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIyMyA2IDEzLjUgMTUuNSA4LjUgMTAuNSAxIDE4Ii8+PHBvbHlsaW5lIHBvaW50cz0iMTcgNiAyMyA2IDIzIDEyIi8+PC9zdmc+"
+  }
 }
 ```
 
@@ -59,12 +80,13 @@ supported via the spec.
 |---|---|---|
 | `id` | yes | Unique on the page |
 | `kind` | yes | Always `"image"` |
-| `url` | yes | Public HTTPS URL. Supports `{{formula}}` references |
+| `source.kind` | yes | `"url"` (observed) |
+| `source.url` | yes | HTTPS URL or `data:` URI. Supports `{{formula}}` references |
 
 The OpenAPI schema also documents `alt`, `link`, and a `style` block on
 image elements. Neither observed in harvested reference workbooks
-(2026-07-02) — every image in the corpus used only `url`. If you need
-them, inspect the schema via the jq recipe above before writing.
+(2026-07-02) — every image in the corpus used only `source.url`. If you
+need them, inspect the schema via the jq recipe above before writing.
 
 Sizing is controlled by the layout grid placement, not element fields.
 
@@ -77,7 +99,7 @@ vary based on workbook state, embed a formula in the URL:
 {
   "id": "status-icon",
   "kind": "image",
-  "url": "https://cdn.example.com/icons/{{[Status] | lowercase}}.png"
+  "source": { "kind": "url", "url": "https://cdn.example.com/icons/{{[Status] | lowercase}}.png" }
 }
 ```
 

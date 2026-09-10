@@ -335,3 +335,13 @@ Fixed shape, confirmed against a real harvested workbook's GET-spec:
 prose) and the stale `<GridContainer>`/`<LayoutElement>` tag names still
 left in that file's layout-XML examples (missed in the 2026-09-09 pass,
 which only fixed `layout.md`).
+
+## 2026-09-10 (2) — `image.url` also moved under `image.source`
+
+Same session as the `backgroundImage.source` finding above, while adding
+icon images to KPI cards. `image.url` (documented flat in `others.md`) is
+response-only on this tenant — GET-spec on a real harvested workbook shows
+`"url": null` with the real value nested under `source: {kind: "url", url}`,
+identical to the `container.backgroundImage` shape. Updated
+`reference/specification/others.md` (both the static-URL and
+`{{formula}}`-templated-URL examples).
