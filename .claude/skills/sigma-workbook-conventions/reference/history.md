@@ -388,3 +388,34 @@ skill): bare control references in formulas work for `list`-type
 single-select controls, not just `segmented` (formulas.md's existing
 example); a `text`/`text-area` control can omit `filters` entirely when
 it's a pure value-entry field for an action, not a table filter.
+
+## 2026-09-10 (3) — `inputMode` does not control the "Editable in" data-entry permission
+
+A `btn-load-sample-data` button's `insert-rows` effect against
+`it-budget-plan` (spec `inputMode: "view"`) failed live with "edits can
+only be made in draft mode" when clicked on the published workbook.
+This directly contradicted this skill's own prior claim (this file's
+"UCSC Budget Planning overhaul" entry above and `tables.md`) that
+`inputMode: "view"` meant "editable in published version, all access
+levels."
+
+Root cause, per Sigma's own docs ("Customize data entry permission on
+input tables"): input tables have a **separate, three-way "Editable
+in" permission** ("Editable in draft" [default] / "Editable in
+published version (restricted)" / "Editable in published version, all
+access levels" [Beta]) that gates writeback independently of the
+code-spec `inputMode` field. Confirmed absent from the code-
+representation OpenAPI schema entirely (`code-representation.json`,
+zero hits for `inputMode`/`dataEntry`/`editableIn` in any schema) — as
+far as this skill can tell, **there is no API/spec field for this
+permission today**. It is workbook draft-state that a human sets by
+selecting the input table in the editor, clicking its "Editable in"
+label, choosing the published-access option, and clicking Publish —
+and it defaults to draft-only for any table created via POST/PUT,
+regardless of `inputMode`.
+
+Practical effect: any workbook with a button that writes to an input
+table needs this manual one-time per-table UI step before the button
+will work for a normal viewer of the published version. Flag this to
+the user explicitly rather than assuming the spec's `inputMode: "view"`
+is sufficient. `tables.md` corrected accordingly.

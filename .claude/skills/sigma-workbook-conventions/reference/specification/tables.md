@@ -471,6 +471,32 @@ Required fields: `id`, `kind: input-table`, `source`, `inputMode`, `name`.
   published version, all access levels). Real harvested workbooks use
   `"view"` universally — prefer that unless you specifically want
   draft-only editing.
+- ⚠️ **2026-09-10 correction — `inputMode` does NOT reliably set the
+  "Editable in" data-entry permission.** A table created via API with
+  `inputMode: "view"` still threw "edits can only be made in draft
+  mode" when a viewer clicked a button that inserted rows into it. Per
+  Sigma's own docs (help.sigmacomputing.com → "Customize data entry
+  permission on input tables"), the actual gate is a **separate,
+  UI-only, workbook-state toggle** with three values ("Editable in
+  draft" [default], "Editable in published version (restricted)",
+  "Editable in published version (all access levels)" [Beta]) that:
+  - is **not present anywhere in the code-representation OpenAPI
+    schema** (confirmed — zero hits for `inputMode`, `dataEntry`,
+    `editableIn` in `code-representation.json`'s schemas), so there is
+    currently no known spec field that sets it;
+  - defaults to **"Editable in draft"** for any table created via
+    POST/PUT, regardless of what `inputMode` says;
+  - can only be changed by a human in the workbook editor: open the
+    workbook in edit/build mode, click into the input table, click its
+    **"Editable in"** label (appears near the table when selected),
+    pick "Editable in published version (all access levels)", then
+    **Publish** — the change only takes effect after publishing.
+  - Treat `inputMode` in the spec as controlling the table's *display/
+    interaction style* (plain edit grid vs. explore-style grid vs.
+    view-only), not this permission. If a button-driven `insert-rows`/
+    `update-rows` action needs to work for a normal viewer of the
+    published workbook, **tell the user this is a manual one-time UI
+    step per input table** — it cannot be set from the API today.
 - **`source.kind: "empty"` still requires `connectionId`** — even though
   there's no real data query, the empty input-table is provisioned
   against a connection. Omitting it silently fails validation (generic
