@@ -177,6 +177,30 @@ inside (text, controls, buttons) are ordinary elements in
 `document.elements` — same as any page's content, just placed under the
 overlay's page block instead of a real page's.
 
+### `list` control `values` defaults don't reliably round-trip — guard formulas with `IsNull`
+
+> ⚠️ **2026-09-10.** A single-select `list` control authored with an
+> initial `values: ["FY2027"]` came back as `values: null` on GET-spec.
+> This is the same class of gap `controls.md` already documents for
+> `number-range` (`values` doesn't reliably round-trip) — now also seen
+> on `list`. Any KPI/chart formula that bare-references that control
+> inside a `SumIf`/`If` (e.g. `[Budget Detail/Fiscal Year] =
+> [DeptPlanFY]`) then compares against an unset value and silently
+> returns 0/blank the moment the user hasn't touched the control yet —
+> which looks exactly like "this tab has no data."
+>
+> **Don't rely on a control default for anything formula-critical.**
+> Guard every such reference with a literal fallback instead:
+>
+> ```
+> SumIf([Budget Detail/Proposed Amount],
+>       [Budget Detail/Fiscal Year] = If(IsNull([DeptPlanFY]), "FY2027", [DeptPlanFY]))
+> ```
+>
+> This makes the KPI show a sensible number on first load regardless of
+> whether the control's authored default actually stuck — cheap
+> insurance, and it degrades gracefully instead of silently blanking.
+
 ### Text-entry controls with no filter target
 
 A control used purely to collect a value for an `insert-rows`/
