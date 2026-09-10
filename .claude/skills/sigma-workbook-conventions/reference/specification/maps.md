@@ -117,4 +117,4 @@ above is the current source of truth. Expect the same envelope
   [`../specification/tables.md`](tables.md) and
   [`../specification/sources.md`](sources.md).
 - `color` channel shape (used identically here) — [`charts.md`](charts.md).
-- Layout placement (`<LayoutElement>`) — [`layout.md`](layout.md).
+- Layout placement (`<Element>`) — [`layout.md`](layout.md).

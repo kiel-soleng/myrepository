@@ -9,7 +9,7 @@ jq '.components.schemas.Container' /tmp/sigma-api.json
 
 A container is the visual grouping primitive: a labeled section, a
 branded header strip, a row of KPIs treated as a unit. It pairs with a
-matching `<GridContainer elementId="...">` in the layout XML (see
+matching `<Container elementId="...">` in the layout XML (see
 `layout.md`) — the spec declares the container exists; the XML
 positions it and its children.
 
@@ -57,12 +57,18 @@ containers omit `backgroundColor` for transparency.
 
 ### `backgroundImage` — image filling the container
 
+> ⚠️ **2026-09-10 drift.** `backgroundImage.url` (flat) is rejected:
+> `document.elements[N].backgroundImage.source: Invalid value: undefined`.
+> The URL must be nested under a `source` object — verified both by the
+> rejection and by GET-spec on a real harvested workbook. `style` stays
+> a sibling of `source`, not of `url`.
+
 ```json
 {
   "id": "hero",
   "kind": "container",
   "backgroundImage": {
-    "url": "https://cdn.example.com/hero.jpg",
+    "source": { "kind": "url", "url": "https://cdn.example.com/hero.jpg" },
     "style": {
       "fit": "cover",
       "horizontalAlign": "middle",
@@ -73,8 +79,10 @@ containers omit `backgroundColor` for transparency.
 }
 ```
 
-`backgroundImage` is an **object**, not a string. `url` is the only
-required field. The optional inner `style`:
+`backgroundImage` is an **object**, not a string. `source.url` is the
+only required field (`source.kind: "url"` — an `"upload"` variant with
+`key` instead of `url` also appears in the schema, unverified here).
+The optional inner `style`:
 
 - `fit`: `contain` | `cover` | `none` | `scale-down` | `stretch`
 - `horizontalAlign`: `start` | `middle` | `end`
@@ -94,7 +102,7 @@ Both can appear on the same container; they're independent:
 {
   "id": "hero",
   "kind": "container",
-  "backgroundImage": { "url": "..." },
+  "backgroundImage": { "source": { "kind": "url", "url": "..." } },
   "style": { "borderRadius": "round", "borderWidth": 0 }
 }
 ```
@@ -147,12 +155,12 @@ heading, sharp corners for clean alignment:
 ```
 
 **Layout placement for spacer containers.** A spacer container must
-have a matching `<GridContainer>` (with children) in the layout XML
-— placing it as a `<LayoutElement>` leaf fails `validate-spec`'s
+have a matching `<Container>` (with children) in the layout XML
+— placing it as a `<Element>` leaf fails `validate-spec`'s
 `containers-have-children` check. Two valid patterns:
 
 1. **Wrap pattern** — nest the next section's container inside the
-   spacer's `<GridContainer>`. The spacer's `gridRow` spans both
+   spacer's `<Container>`. The spacer's `gridRow` spans both
    the visible band region AND the nested section, giving a
    concentric two-color frame. `examples/styled-card-dashboard.json`
    uses this for every section break on page 1.
@@ -204,12 +212,12 @@ Paired layout XML places logo and title side-by-side inside the
 header container:
 
 ```xml
-<GridContainer elementId="header" type="grid"
+<Container elementId="header" type="grid"
                gridColumn="1 / 25" gridRow="1 / 6"
                gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto">
-  <LayoutElement elementId="logo"  gridColumn="1 / 6"  gridRow="1 / 6"/>
-  <LayoutElement elementId="title" gridColumn="6 / 25" gridRow="1 / 6"/>
-</GridContainer>
+  <Element elementId="logo"  gridColumn="1 / 6"  gridRow="1 / 6"/>
+  <Element elementId="title" gridColumn="6 / 25" gridRow="1 / 6"/>
+</Container>
 ```
 
 ## Recipe — KPI on top of a background image
@@ -220,7 +228,7 @@ header container:
     {
       "id": "hero",
       "kind": "container",
-      "backgroundImage": { "url": "https://picsum.photos/1200/300",
+      "backgroundImage": { "source": { "kind": "url", "url": "https://picsum.photos/1200/300" },
                            "style": { "fit": "cover" } }
     },
     {
@@ -232,11 +240,11 @@ header container:
 ```
 
 ```xml
-<GridContainer elementId="hero" type="grid"
+<Container elementId="hero" type="grid"
                gridColumn="1 / 25" gridRow="1 / 8"
                gridTemplateColumns="repeat(24, 1fr)" gridTemplateRows="auto">
-  <LayoutElement elementId="revenue-kpi" gridColumn="1 / 25" gridRow="1 / 8"/>
-</GridContainer>
+  <Element elementId="revenue-kpi" gridColumn="1 / 25" gridRow="1 / 8"/>
+</Container>
 ```
 
 **Note:** overlapping `gridRow` ranges between siblings inside one
@@ -250,7 +258,7 @@ full extent and the child element sits on top of it naturally.
 
 If you don't need a visual grouping (no shared background, no
 logical section), put elements directly on the page and position
-them with `<LayoutElement>` in the page-level layout XML. A
+them with `<Element>` in the page-level layout XML. A
 container that holds a single element is usually overkill — unless
 you specifically need the background image or styled frame.
 

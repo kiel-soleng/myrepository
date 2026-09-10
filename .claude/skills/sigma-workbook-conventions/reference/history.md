@@ -314,3 +314,24 @@ hypothesis get tested in isolation cheaply.
 Final workbook POSTed clean and passed `verify-workbook.sh` 27/27 after
 all six fixes applied. See `workbooks/ucsc-student-progress/notes.md` for
 the build-specific log.
+
+## 2026-09-10 — `backgroundImage.url` moved under `backgroundImage.source`
+
+Follow-up session applying UCSC brand colors + gradient KPI cards to the
+2026-09-09 UCSC workbook. `container.backgroundImage.url` (documented flat
+in `containers.md`) is rejected:
+`document.elements[N].backgroundImage.source: Invalid value: undefined`.
+Fixed shape, confirmed against a real harvested workbook's GET-spec:
+
+```json
+"backgroundImage": {
+  "source": { "kind": "url", "url": "<https-or-data-uri>" },
+  "style": { "fit": "cover" }
+}
+```
+
+`style` is a sibling of `source`, not of `url`. Updated
+`reference/specification/containers.md` (all three code examples + the
+prose) and the stale `<GridContainer>`/`<LayoutElement>` tag names still
+left in that file's layout-XML examples (missed in the 2026-09-09 pass,
+which only fixed `layout.md`).

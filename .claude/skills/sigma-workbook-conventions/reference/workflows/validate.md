@@ -72,8 +72,8 @@ For each column's `formula`:
 - A formula references a column name that doesn't exist on the source
   → re-confirm column names via `mcp-describe`.
 - Donut chart requires `value` + `color` (or `holeValue` if used).
-- Layout XML: no `<LayoutElement type="grid">` with children — use
-  `<GridContainer>` for nesting (children are silently dropped
+- Layout XML: no `<Element type="grid">` with children — use
+  `<Container>` for nesting (children are silently dropped
   otherwise).
 - Controls bind via `filters[].columnId` matching a column `id` on
   the target element (NOT `name`).
