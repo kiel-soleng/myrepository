@@ -434,41 +434,70 @@ See `reference/conventions.md` → "Two-tier sourcing."
 The `input-table` element is an editable table — users type values
 directly into cells, backed by a provisioned warehouse table.
 
-**Status (2026-07-02):** documented by upstream eng skill; no
-harvested exemplar in this skill's corpus yet. Practical value is
-limited until Sigma exposes actions (buttons that write cell values
-back to the warehouse) via the spec. Keep the docs minimal until
-that lands.
+**Status (2026-09-10, verified live):** actions have landed — see
+`reference/specification/actions.md` for `button` elements and the
+`update-rows`/`insert-rows`/`delete-rows` effects that read/write these
+tables. Shape below corrected against real harvested production
+workbooks and a live build; the 2026-07-02 shape (`columnType`, no
+`connectionId`) was wrong on two fields.
 
 ## Shape
 
-Required fields: `id`, `kind: input-table`, `source`, `inputMode`.
+Required fields: `id`, `kind: input-table`, `source`, `inputMode`, `name`.
 
 ```json
 {
-  "id": "input-forecast",
+  "id": "it-budget-plan",
   "kind": "input-table",
-  "inputMode": "edit",
-  "source": { "kind": "empty" },
+  "inputMode": "view",
+  "name": "Budget Plan Input",
+  "source": { "kind": "empty", "connectionId": "<conn-uuid>" },
+  "style": { "backgroundColor": "#FFFFFF", "borderRadius": "round", "borderColor": "#DCE4EE", "borderWidth": 1 },
   "columns": [
-    { "id": "col-region",   "name": "Region",   "columnType": "text" },
-    { "id": "col-forecast", "name": "Forecast", "columnType": "number" }
+    { "id": "bp-department", "type": "text",   "name": "Department" },
+    { "id": "bp-proposed",   "type": "number", "name": "Proposed Amount" },
+    { "id": "bp-status",     "type": "text",   "name": "Approval Status",
+      "values": ["Draft", "Submitted", "Approved", "Rejected"],
+      "pills": "color-by-option" }
   ]
 }
 ```
 
-- `inputMode`: `"edit"` observed. Inspect the OpenAPI for other modes.
-- `source.kind`: `"empty"` (blank editable table) or `"linked"` (backed
-  by an existing warehouse table).
-- Column shape differs from `table` — includes `columnType` and system
-  columns (audit fields). Pull the full schema before authoring:
-
-```bash
-jq --arg k input-table 'first(.. | objects | select((.allOf? and any(.allOf[]?; .properties?.kind?.enum==[$k])) or .properties?.kind?.enum==[$k]))' /tmp/sigma-api.json
-```
-
-Also supports `filters`, `conditionalFormats` (see above), `sort`,
-`summary`, and the styled title-section `name` / `noDataText`.
+- **`name` is required** — omitting it (along with getting the column
+  shape wrong, below) produces a generic `Invalid kind: "input-table"`
+  with no hint which field is missing.
+- `inputMode`: `"edit"` (editable in draft only), `"explore"` (editable
+  in published version, restricted access), `"view"` (editable in
+  published version, all access levels). Real harvested workbooks use
+  `"view"` universally — prefer that unless you specifically want
+  draft-only editing.
+- **`source.kind: "empty"` still requires `connectionId`** — even though
+  there's no real data query, the empty input-table is provisioned
+  against a connection. Omitting it silently fails validation (generic
+  `Invalid kind: "input-table"`, no field-level error).
+  `source.kind: "linked"` (backed by an existing warehouse table) also
+  exists but isn't re-verified here.
+- **Column shape is `{id, type, name}` — the field is `type`, NOT
+  `columnType`.** `type` values observed: `"text"`, `"number"`. This
+  differs from the regular `table` element's columns (`{id, name,
+  formula}`) — input-table columns have no `formula`, since their
+  values come from user input, not a query.
+- **Optional column fields `values` + `pills`**: `values: [...]` gives a
+  fixed picklist of options; `pills: "color-by-option"` renders the
+  column as colored status pills (great for an Approval Status /
+  Status column) instead of a plain text cell.
+- Also supports `filters`, `conditionalFormats` (see above), `sort`,
+  `summary`, and the styled title-section `name` / `noDataText`.
+- **Input-tables start genuinely empty** — there is no way to pre-seed
+  rows via the spec (they're populated by live user writes or an
+  `insert-rows` button action, never by a query). Design around this:
+  either accept the empty-start UX (a "start typing your plan" grid) or
+  add an explicit seeding button.
+- **Every input-table must be placed in the layout**, even if it's not
+  meant to be a page's visual focus — park it on a page with
+  `"visibility": "hidden"` if it exists purely as an action target.
+  Omitting it from the layout entirely fails with `element '<id>' is
+  not placed in layout`.
 
 ## Cross-references
 

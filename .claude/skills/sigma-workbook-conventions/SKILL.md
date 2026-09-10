@@ -207,6 +207,7 @@ session and cite chunk + section in the plan.
 | Container-styling-heavy build | + `reference/specification/containers.md` |
 | Image / divider / embed / dynamic-text build | + `reference/specification/others.md` + `reference/specification/text.md` |
 | Map-bearing build (`geography-map`, `point-map`, `region-map`) | + `reference/specification/maps.md` |
+| Writeback / app build (input-table grids, buttons, approval actions, modals) | + `reference/specification/actions.md` + `reference/specification/tables.md` (Input tables section) |
 | Round-trip / edge-case work (POST failures, format fields, axis controls) | + `reference/scope-and-edge-cases.md` + `reference/workflows/validate.md` |
 | From-image build (screenshot / mockup reproduction) | + `reference/workflows/from-image.md` (load BEFORE data discovery) |
 
@@ -481,8 +482,14 @@ OpenAPI `jq` recipe.
   single-family font, paragraph alignment) + `{{formula}}` dynamic
   text embeds with d3 format suffix.
 - `others.md` — `divider` (with `direction`/`align`/`style`) +
-  `image` + `embed` elements + `{{formula}}` in URLs +
-  buttons/modals unsupported note.
+  `image` + `embed` elements + `{{formula}}` in URLs. Buttons/modals
+  ARE supported — see `actions.md`, not this file.
+- `actions.md` — `button` element (`text`, not `name`, for its label) +
+  action effects (`update-rows`/`insert-rows`/`delete-rows`/
+  `set-control-value`/`clear-control`/`open-overlay`/`close-overlay`,
+  all keyed by `tableElementId`) + `document.overlays` (modals/drawers,
+  whose content lives in their own `<Page id="<overlayId>">` layout
+  block). Pair with `tables.md`'s Input tables section.
 - `maps.md` — `geography-map` + `point-map` + `region-map` (with
   `regionType` enum) + single-vs-array shape gotcha on binding
   fields.

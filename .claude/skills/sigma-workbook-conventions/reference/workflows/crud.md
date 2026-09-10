@@ -48,17 +48,48 @@ Validates first (fail-fast), then PUTs via `sigma_curl` (auth-injected,
 response-only fields from a GET-back first — see "Response-only fields to
 strip on PUT" below.
 
+## Renaming or re-describing an existing workbook — NOT via PUT /spec
+
+> ⚠️ **2026-09-10 finding.** `PUT /v2/workbooks/{id}/spec` silently
+> ignores the top-level `name` and `description` fields on an existing
+> workbook — both are required on the request body (see `schema.md`),
+> but neither actually changes anything. `GET .../meta` keeps showing
+> whatever `name`/`description` were set at CREATE time, no matter what
+> you PUT afterward. Verified by PUTting three different `name` values
+> across one session and re-checking `get-meta` each time.
+>
+> To actually rename or re-describe a workbook (or any file — folders,
+> datasets, data models), use the generic file-metadata endpoint
+> instead:
+>
+> ```bash
+> curl -sS -X PATCH -H "Authorization: Bearer $SIGMA_API_TOKEN" \
+>   -H "Content-Type: application/json" \
+>   -d '{"name": "New Name", "description": "New description"}' \
+>   "$SIGMA_BASE_URL/v2/files/<workbook-id>"
+> ```
+>
+> `workbook-id` here is the same UUID used everywhere else (`inodeId` in
+> the OpenAPI's path param name). Also accepts `ownerId`, `parentId`
+> (move to a different folder), and `restore` (boolean, undelete).
+
 ## DELETE — direct curl (intentional)
+
+> ⚠️ **2026-09-10 correction.** `DELETE /v2/workbooks/{id}` does **not
+> exist** — confirmed via the OpenAPI (`/v2/workbooks/{workbookId}` only
+> has a `get` method). The real delete endpoint is the same generic
+> files endpoint used for renaming above:
 
 ```bash
 curl -sS -X DELETE -H "Authorization: Bearer $SIGMA_API_TOKEN" \
-  "$SIGMA_BASE_URL/v2/workbooks/<workbook-id>"
+  "$SIGMA_BASE_URL/v2/files/<workbook-id>"
 ```
 
 DELETE stays on the direct-curl path so it hits the `ask` pattern in
 `.claude/settings.json` (`Bash(curl * -X DELETE *)`). Any deletion wrapper
 must be named `scripts/api/delete-*` so the corresponding `ask` rule
-catches it — see `reference/workflows/plan.md` → "Approval model."
+catches it — see `reference/workflows/plan.md` → "Approval model." If you
+add a delete wrapper, point it at `/v2/files/{id}`, not `/v2/workbooks/{id}`.
 
 The API accepts both `application/json` and `application/yaml`. This
 skill's exemplars are JSON for tooling consistency with

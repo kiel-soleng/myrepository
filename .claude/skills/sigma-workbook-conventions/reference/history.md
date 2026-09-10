@@ -345,3 +345,46 @@ response-only on this tenant — GET-spec on a real harvested workbook shows
 identical to the `container.backgroundImage` shape. Updated
 `reference/specification/others.md` (both the static-URL and
 `{{formula}}`-templated-URL examples).
+
+## 2026-09-10 (2) — UCSC Budget Planning overhaul: input-tables, actions, overlays, rename endpoint, Cloudflare ceiling
+
+Full-domain overhaul of the UCSC workbook (student-progress tracker →
+budget-planning app with writeback/approvals). First real build in this
+skill using `input-table`, `button`, action effects, and
+`document.overlays` — added `reference/specification/actions.md` (new
+file) and corrected `reference/specification/tables.md`'s Input tables
+section, which had two wrong fields (`columnType` should be `type`;
+`source: {kind: "empty"}` needs `connectionId` too). Also corrected
+`reference/workflows/crud.md`'s DELETE section — `DELETE
+/v2/workbooks/{id}` doesn't exist (confirmed via OpenAPI: only `get` on
+that path); the real endpoint is `DELETE /v2/files/{id}`, same as the
+rest of this log's DELETE guidance already used in practice but never
+written down.
+
+**New finding: `PUT /v2/workbooks/{id}/spec` does not rename the
+workbook or update its description**, despite both being required
+top-level fields on the request body. Verified by PUTting three
+different `name` values in one session and checking `get-meta` each
+time — the CREATE-time name persisted throughout. Renaming/re-describing
+requires `PATCH /v2/files/{id}` instead (`{name, description, ownerId,
+parentId, restore}`), documented now in `crud.md`.
+
+**Cloudflare content/size ceiling** (also logged in this workbook's own
+`notes.md`): `PUT`/`POST` to the API can return an HTML Cloudflare
+challenge page (403) instead of any Sigma response once a request
+mixes a lot of SQL text + quoted formulas + HTML + base64 SVG content —
+empirically somewhere around 28-32KB of that specific content mix
+(NOT simple byte count: a 67KB payload of plain repeated text passed
+fine). Mitigation: drop decorative gradient/icon `backgroundImage`s in
+favor of flat `style.backgroundColor` hex values, and trim chart/table
+passthrough columns to just the bound axis/metric columns. A later,
+larger (~70KB) request with the same leaner style went through on the
+first try, so this might be a session-risk-score effect rather than a
+hard content rule — inconclusive, flagged for re-test in a future
+session rather than treated as settled.
+
+Also reconfirmed from real harvested workbooks (not previously in this
+skill): bare control references in formulas work for `list`-type
+single-select controls, not just `segmented` (formulas.md's existing
+example); a `text`/`text-area` control can omit `filters` entirely when
+it's a pure value-entry field for an action, not a table filter.
