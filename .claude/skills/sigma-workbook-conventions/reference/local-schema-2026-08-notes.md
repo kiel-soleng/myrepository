@@ -84,6 +84,51 @@ single-color `color: {by: "single", value: "#hex"}` on bar charts, `top-n`
 element filters, plain containers, and `sql`-source tables with
 `[Custom SQL/<col>]` formula prefixes.
 
+## 3a. `input-table` column shape and `source.kind: "empty"`
+
+`tables.md` documents `input-table` columns as `{id, name, columnType}`. On
+this org, the accepted field is **`type`, not `columnType`** —
+`{"id": "sv-name", "type": "text", "name": "Scenario Name"}`. Sending
+`columnType` produces the generic `Invalid kind: "input-table"` (no hint
+that the field name is wrong).
+
+`source: {"kind": "empty"}` alone is also rejected — an **empty source needs
+a `connectionId`** even though there's no explicit warehouse table backing
+it yet: `"source": {"kind": "empty", "connectionId": "<snowflake-conn-uuid>"}`.
+Found by reading a real `input-table` element off an existing workbook's
+GET-spec (`kind: "table"` sources need a `connectionId` too, so this isn't
+surprising in hindsight, but neither `tables.md` nor the OpenAPI-derived
+docs mention it for the `empty` variant specifically).
+
+Once the shape is right, `input-table` elements work as genuine write-back
+with **zero extra plumbing**: each row a user adds via Sigma's native
+input-table "+ add row" UI is a real persisted row, immediately queryable
+by other elements on the page — no `button` + `insert-rows` action needed
+for the basic "let users create new records" capability. Save that
+combination for cases that need a specific trigger/workflow (approve,
+submit, reset), not for basic row creation.
+
+## 3b. Bare control-value references work for `list`, not just `segmented`
+
+`controls.md`'s "Numeric parameter control referenced from formulas" section
+demonstrates bare `[ControlId]` formula references only for `segmented`
+controls. Verified this session: the same bare-reference mechanism works
+identically for a **`list`** control with `selectionMode: "single"` — its
+currently-selected value (a text string here) is readable from any formula
+on the page via `[<controlId>]`, exactly like `segmented`. Useful for
+"pick a saved record, look up its values" patterns:
+
+```
+{"id": "active-key", "name": "Active Scenario Key", "formula": "[ActiveScenario]"}
+...
+"formula": "Lookup([Saved Scenarios/Growth %], [Active Scenario Key], [Saved Scenarios/Scenario Name])"
+```
+
+This composes with `Lookup()` (see `formulas.md`) to pull a value out of an
+`input-table` keyed by whatever the user currently has selected in a list
+control — a lightweight alternative to wiring an actual filter/join when
+you just need one scalar per row, broadcast from a control's selection.
+
 ## 4. `scripts/validate-spec.py` does not understand this envelope
 
 The repo's own pre-POST validator (`_all_elements()`, `issues_elements_placed()`,
