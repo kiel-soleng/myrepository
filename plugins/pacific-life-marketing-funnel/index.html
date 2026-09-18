@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; width: 100%; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  #stage { position: absolute; inset: 0; }
+  svg text { fill: #1A2B3C; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="https://unpkg.com/@sigmacomputing/plugin"></script>
+<script>
+var client = window.sigmaComputing.plugin.client;
+
+client.config.configureEditorPanel([
+  { name: "source", type: "element" },
+  { name: "stageName", type: "column", source: "source", allowedTypes: ["text"], label: "Stage Name" },
+  { name: "stageOrder", type: "column", source: "source", allowedTypes: ["number"], label: "Stage Order" },
+  { name: "stageValue", type: "column", source: "source", allowedTypes: ["number"], label: "Stage Value" }
+]);
+
+var NAVY = "#004685";
+var CYAN = "#008ED7";
+var AMBER = "#E8A33D";
+var LIGHT_NAVY = "#EEF3F8";
+
+function synth() {
+  return [
+    { name: "Invitations Sent", order: 1, value: 41200 },
+    { name: "Registrations", order: 2, value: 15250 },
+    { name: "Attendees", order: 3, value: 10680 },
+    { name: "Leads Generated", order: 4, value: 3350 },
+    { name: "Conversions", order: 5, value: 657 }
+  ];
+}
+
+function aggregate(elementData, cfg) {
+  var names = elementData[cfg.stageName];
+  var orders = elementData[cfg.stageOrder];
+  var values = elementData[cfg.stageValue];
+  if (!names || !orders || !values) return null;
+  var byName = {};
+  for (var i = 0; i < names.length; i++) {
+    var n = names[i];
+    if (!(n in byName)) byName[n] = { name: n, order: orders[i], value: 0 };
+    byName[n].value += values[i] || 0;
+  }
+  var rows = Object.keys(byName).map(function (k) { return byName[k]; });
+  rows.sort(function (a, b) { return a.order - b.order; });
+  return rows.length ? rows : null;
+}
+
+function fmt(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return String(Math.round(n));
+}
+
+function render(rows) {
+  var stageEl = document.getElementById("stage");
+  var w = stageEl.clientWidth || 600;
+  var h = stageEl.clientHeight || 400;
+  var n = rows.length;
+  var topPad = 16, botPad = 16, gap = 6;
+  var rowH = (h - topPad - botPad - gap * (n - 1)) / n;
+  var maxVal = rows[0].value || 1;
+  var centerX = w / 2;
+  var maxWidth = w * 0.86;
+  var minWidth = w * 0.22;
+
+  var colors = [NAVY, "#0B5A9E", CYAN, "#3CA9DC", AMBER];
+
+  var svgParts = [];
+  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">');
+
+  var prevVal = null;
+  for (var i = 0; i < n; i++) {
+    var row = rows[i];
+    var frac = maxVal > 0 ? row.value / maxVal : 0;
+    var segWidth = minWidth + (maxWidth - minWidth) * frac;
+    var nextFrac = i < n - 1 && maxVal > 0 ? rows[i + 1].value / maxVal : frac * 0.8;
+    var nextWidth = minWidth + (maxWidth - minWidth) * Math.max(nextFrac, 0);
+    var y0 = topPad + i * (rowH + gap);
+    var y1 = y0 + rowH;
+    var xTopL = centerX - segWidth / 2, xTopR = centerX + segWidth / 2;
+    var xBotL = centerX - nextWidth / 2, xBotR = centerX + nextWidth / 2;
+    if (i === n - 1) { xBotL = xTopL; xBotR = xTopR; }
+
+    var color = colors[i % colors.length];
+    svgParts.push('<polygon points="' + [xTopL + ',' + y0, xTopR + ',' + y0, xBotR + ',' + y1, xBotL + ',' + y1].join(" ") + '" fill="' + color + '" opacity="0.92" />');
+
+    var convPct = prevVal !== null && prevVal > 0 ? Math.round((row.value / prevVal) * 100) : null;
+    var labelY = y0 + rowH / 2;
+    svgParts.push('<text x="' + centerX + '" y="' + (labelY - 6) + '" text-anchor="middle" font-size="15" font-weight="600" fill="#FFFFFF">' + row.name + '</text>');
+    var subLabel = fmt(row.value) + (convPct !== null ? "  ·  " + convPct + "% of prior" : "");
+    svgParts.push('<text x="' + centerX + '" y="' + (labelY + 14) + '" text-anchor="middle" font-size="12" fill="#FFFFFF" opacity="0.9">' + subLabel + '</text>');
+
+    prevVal = row.value;
+  }
+  svgParts.push('</svg>');
+  stageEl.innerHTML = svgParts.join("");
+}
+
+var unsub = null;
+var lastRows = synth();
+render(lastRows);
+
+client.config.subscribe(function (cfg) {
+  if (unsub) { unsub(); unsub = null; }
+  if (cfg && cfg.source && cfg.stageName && cfg.stageOrder && cfg.stageValue) {
+    unsub = client.elements.subscribeToElementData(cfg.source, function (elementData) {
+      var rows = aggregate(elementData, cfg);
+      lastRows = rows || synth();
+      render(lastRows);
+    });
+  } else {
+    lastRows = synth();
+    render(lastRows);
+  }
+});
+
+var ro = new ResizeObserver(function () { render(lastRows); });
+ro.observe(document.getElementById("stage"));
+</script>
+</body>
+</html>
