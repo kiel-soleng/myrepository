@@ -10,9 +10,10 @@
 </head>
 <body>
 <div id="stage"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/@sigmacomputing/plugin"></script>
 <script>
-var client = window.sigmaComputing.plugin.client;
+var client = window.SigmaPlugin.client;
 
 client.config.configureEditorPanel([
   { name: "source", type: "element" },
