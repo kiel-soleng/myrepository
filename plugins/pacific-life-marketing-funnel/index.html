@@ -138,23 +138,41 @@ function render(rows) {
 
 var unsub = null;
 var lastRows = synth();
-render(lastRows);
+var lastW = -1, lastH = -1;
+
+function renderRows(rows) {
+  lastRows = rows;
+  var stageEl = document.getElementById("stage");
+  lastW = stageEl.clientWidth;
+  lastH = stageEl.clientHeight;
+  render(rows);
+}
+
+renderRows(lastRows);
 
 client.config.subscribe(function (cfg) {
   if (unsub) { unsub(); unsub = null; }
   if (cfg && cfg.source && cfg.stageName && cfg.stageOrder && cfg.stageValue) {
     unsub = client.elements.subscribeToElementData(cfg.source, function (elementData) {
       var rows = aggregate(elementData, cfg);
-      lastRows = rows || synth();
-      render(lastRows);
+      renderRows(rows || synth());
     });
   } else {
-    lastRows = synth();
-    render(lastRows);
+    renderRows(synth());
   }
 });
 
-var ro = new ResizeObserver(function () { render(lastRows); });
+// Guarded resize handling -- only re-render when the observed box's size
+// actually changed. Without this guard, replacing #stage's innerHTML can
+// trigger a ResizeObserver notification even when the box itself didn't
+// change size, causing a render -> notify -> render feedback loop that
+// looks like the visual "glitching / moving" rather than a static chart.
+var ro = new ResizeObserver(function () {
+  var stageEl = document.getElementById("stage");
+  var w = stageEl.clientWidth, h = stageEl.clientHeight;
+  if (w === lastW && h === lastH) return;
+  renderRows(lastRows);
+});
 ro.observe(document.getElementById("stage"));
 </script>
 </body>
