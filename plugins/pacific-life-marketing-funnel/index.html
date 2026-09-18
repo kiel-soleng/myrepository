@@ -144,6 +144,13 @@ var lastDataSig = null;
 function renderRows(rows) {
   lastRows = rows;
   render(rows);
+  // Tell Sigma explicitly that this element is done loading. The SDK
+  // exposes client.config.setLoadingState for exactly this -- if a plugin
+  // never calls it, and the host defaults to (or gets stuck in) a "still
+  // loading" state for some reason, its own querying/loading indicator
+  // (a sweeping progress bar) can persist indefinitely, independent of
+  // anything the plugin's own DOM is doing. Never called before this fix.
+  try { client.config.setLoadingState(false); } catch (e) {}
   // Capture size AFTER mutating the DOM, not before. If render() itself
   // changes #stage's own reported size (e.g. a container that sizes to
   // content), recording the pre-render size here would leave lastW/lastH
