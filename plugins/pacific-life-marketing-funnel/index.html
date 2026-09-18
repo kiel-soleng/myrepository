@@ -139,23 +139,50 @@ function render(rows) {
 var unsub = null;
 var lastRows = synth();
 var lastW = -1, lastH = -1;
+var lastDataSig = null;
 
 function renderRows(rows) {
   lastRows = rows;
+  render(rows);
+  // Capture size AFTER mutating the DOM, not before. If render() itself
+  // changes #stage's own reported size (e.g. a container that sizes to
+  // content), recording the pre-render size here would leave lastW/lastH
+  // stale, so the very next ResizeObserver notification (fired because of
+  // the render we just did) would look like a "real" change and trigger
+  // another render -- reproducing the loop this guard exists to prevent,
+  // just one step removed.
   var stageEl = document.getElementById("stage");
   lastW = stageEl.clientWidth;
   lastH = stageEl.clientHeight;
-  render(rows);
 }
 
 renderRows(lastRows);
 
+var lastCfgSig = null;
 client.config.subscribe(function (cfg) {
+  // Sigma may call this callback repeatedly with an unchanged config (this
+  // element's #stage is absolute/inset:0, so it can't resize itself via its
+  // own content -- if the glitching persists independent of container size,
+  // repeated identical config/data delivery re-tearing-down and rebuilding
+  // the subscription on every call is the more likely mechanism than a
+  // resize loop). Skip entirely when nothing actually changed.
+  var cfgSig = JSON.stringify(cfg);
+  if (cfgSig === lastCfgSig) return;
+  lastCfgSig = cfgSig;
   if (unsub) { unsub(); unsub = null; }
+  lastDataSig = null;
   if (cfg && cfg.source && cfg.stageName && cfg.stageOrder && cfg.stageValue) {
     unsub = client.elements.subscribeToElementData(cfg.source, function (elementData) {
-      var rows = aggregate(elementData, cfg);
-      renderRows(rows || synth());
+      var rows = aggregate(elementData, cfg) || synth();
+      // Sigma may redeliver identical data (periodic refresh, re-poll on
+      // interaction elsewhere in the workbook, etc.) -- skip the re-render
+      // entirely when the incoming data is unchanged from last time, since
+      // tearing down and rebuilding the SVG on every delivery -- even with
+      // pixel-identical output -- reads as a visible flicker/movement.
+      var sig = JSON.stringify(rows);
+      if (sig === lastDataSig) return;
+      lastDataSig = sig;
+      renderRows(rows);
     });
   } else {
     renderRows(synth());
@@ -163,10 +190,7 @@ client.config.subscribe(function (cfg) {
 });
 
 // Guarded resize handling -- only re-render when the observed box's size
-// actually changed. Without this guard, replacing #stage's innerHTML can
-// trigger a ResizeObserver notification even when the box itself didn't
-// change size, causing a render -> notify -> render feedback loop that
-// looks like the visual "glitching / moving" rather than a static chart.
+// actually changed relative to the size recorded after the last render.
 var ro = new ResizeObserver(function () {
   var stageEl = document.getElementById("stage");
   var w = stageEl.clientWidth, h = stageEl.clientHeight;
