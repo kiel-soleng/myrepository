@@ -42,34 +42,62 @@ and don't expect a theme ref to fix inline text spans (it won't).
   different org/customer. Either omit it and rely purely on `overrides`, or
   look up (or create) an equivalent theme in the target org first.
 
-## 2. Inline hex colors in text/KPI elements — tedious, do this second
+## 2. Inline hex colors in text/KPI elements — verify per-instance, do NOT blind find/replace
 
-The exemplar does **not** exclusively use theme refs — many `text` and
-`kpi-chart` elements hardcode brand color directly in the element body as
-inline HTML spans or `name.color` fields, e.g.:
+**Correction to an earlier pass at this file.** The first version of this
+table grouped hexes into a "brand-red family" and a "secondary-green
+family" and said to find/replace the whole family. That's wrong and would
+have broken the dashboard's meaning. Checked by JSON key context (not just
+grep frequency), the reality is:
 
-```
-<span style="color: #a81712">**FOOD SAFETY & RISK REPORT**</span>
-```
-```json
-"name": { "text": "AUDIT PASS RATE", "color": "#a81712", "fontSize": 15 }
-```
+- **The exact same hex value plays different roles in different
+  elements.** `#ac2219` is a plain decorative `color` in some text spans
+  AND the literal `customColors` entry for risk tier `"Critical"`
+  elsewhere. `#f7f2ec` is a decorative background tint in some places AND
+  the highlighted-row background for `Pass Fail = "Fail"` in a table's
+  conditional format elsewhere. A global grep-and-replace on either hex
+  recolors the semantic encoding too.
+- **The safe signal is the JSON key the hex sits under, not the hex
+  itself.** Confirmed by walking every occurrence in the exemplar:
 
-Brand-accent hexes to find-and-replace throughout `spec.json` (search for
-these literal strings — grep for the hex, not just "Chipotle"):
-
-| Hex | Usage | Swap to |
+| Key the hex is nested under | Role | Safe to rebrand? |
 |---|---|---|
-| `#c24a38`, `#a81712`, `#a81612`, `#ac2219`, `#ac2318`, `#ac2218`, `#441400`, `#441503`, `#461400` | Brand-red family — KPI titles, section headers, callout emphasis spans | Customer's primary brand color (and 2–3 tint/shade variants if the design needs emphasis levels) |
-| `#5e6921`, `#a9cc8f`, `#cdebb8` | Secondary brand-green family — used decoratively (not as a status color) | Customer's secondary brand color, or drop if the customer has no secondary color |
-| `#717171`, `#333333`, `#515151`, `#171717`, `#b4b4b4`, `#d4d4d4` | Neutral grays — body text, muted labels | Usually leave as-is; these aren't brand-specific |
-| `#e8a597`, `#f7f2ed`, `#fefefe`, `#fffbfa` | Light brand tints (backgrounds, subtle fills) | Light tint of the customer's primary color |
-| `#b68208` | Amber — check whether it's semantic (warning-adjacent) or decorative before touching |
+| `comparison.colorGood` / `comparison.colorBad` (on a KPI) | Trend arrow good/bad | **No — semantic.** Always green=good/red=bad regardless of brand. |
+| `customColors[].color` paired with a tier/status value (`"Critical"`, `"High"`, `"Fail"`, etc.) | Risk-tier / pass-fail encoding | **No — semantic.** |
+| `color.scheme` array on a chart (positional category palette) | Same risk-tier encoding, different chart | **No — semantic**, even though it's "just a palette array." |
+| `colorScale.scheme` / `gaugeMarks` (gauge charts) | Good→bad gradient | **No — semantic.** |
+| Conditional-format `style.color` / `style.backgroundColor` triggered by a status value | Row/cell highlighting for that status | **No — semantic.** |
+| A bare `"color": "#hex"` or `"fontColor": "#hex"` inside a **text-element body span** (`<span style="color:#hex">`) that is NOT one of the above | Typographic emphasis on a title/header/caption | **Yes**, if you've confirmed (grep) that exact hex never also appears in one of the semantic contexts above. |
+| `name.color` on a KPI/text title object (`{"text": "...", "color": "#hex"}`) | Title emphasis | **Yes**, same caveat. |
+| `document.settings.theme.overrides.colors.highlight` | Theme-level accent | **Yes.** |
 
-Do **not** touch colors that map to risk tiers / pass-fail / status
-(reds/greens/ambers used in the scatter chart, region map, or repeated-
-container conditional formatting) — those must stay semantically red =
-bad, green = good, independent of brand.
+**In this exemplar, only `#a81712` (main workbook) and `#a91513` (companion
+report) came back clean** — every occurrence is a plain `color` key on a
+text span or KPI title, never a `comparison`/`customColors`/`scheme`/
+`gaugeMarks` key. Every other red/green/amber hex found (`#c24a38`,
+`#ac2219`, `#ac2318`, `#ac2218`, `#5e6921`, `#a9cc8f`, `#cdebb8`, `#b68208`,
+`#e8a597`, `#f7f2ed`/`#f7f2ec`, `#59A14E`, `#e15658`, `#a91513`'s siblings)
+had at least one semantic occurrence and is **out of scope for an
+automated pass** — leave those alone unless you individually verify (same
+method: find the occurrence, read the enclosing key) that a *specific*
+instance is decorative-only.
+
+**Practical recipe for a new customer:**
+1. Set `document.settings.theme.overrides.colors.highlight` to the
+   customer's primary brand color.
+2. Find every occurrence of `#a81712` (workbook) / `#a91513` (report) and
+   replace with the same primary brand color — these are confirmed clean.
+3. Leave every other hex untouched. The dashboard will read as "customer's
+   accent color on titles, standard red/amber/green risk semantics
+   elsewhere" — which is the correct, safe result, not a partial rebrand.
+4. If the customer specifically wants a fuller recolor (e.g. matching
+   their exact palette on chart category colors), that requires walking
+   each remaining hex's occurrences individually with the same audit
+   method — budget real time for it, don't attempt it as a bulk pass.
+
+Neutral grays (`#717171`, `#333333`, `#515151`, `#171717`, `#b4b4b4`,
+`#d4d4d4`) are body text / labels / borders — leave as-is regardless of
+brand; they aren't brand-specific in this exemplar.
 
 ## 3. Company name — hardest, needs manual review per hit, not blind find/replace
 
@@ -165,7 +193,10 @@ Gotham renders.
 
 - [ ] `document.settings.theme.overrides.colors.highlight` → customer primary
 - [ ] Confirm `success` / `warning` / `danger` stay semantic (don't rebrand)
-- [ ] Grep + replace brand-accent hex family (§2 table)
+- [ ] Replace `#a81712` (workbook) with the customer's primary color —
+      confirmed clean, no semantic occurrences (§2)
+- [ ] Leave every other red/green/amber hex untouched unless individually
+      verified decorative via the key-context method (§2)
 - [ ] Rewrite 3 branded AI agent persona lines (§3)
 - [ ] Rewrite 2 `CallText(...)` prompt strings naming the company (§3)
 - [ ] Replace static header/report/attestation text mentioning the company (§3)
