@@ -115,14 +115,32 @@ bar — not "most of them."
 
 ## 5. Out of scope for this skill (flag to the user, don't silently drop)
 
-- **Cross-workbook embed.** The Exec Report Modal embeds a *different*
-  Sigma report by hardcoded URL
-  (`app.sigmacomputing.com/papercrane/report/Chipotle-Risk-Profile-Report-...`).
-  That report is a separate workbook, not part of this spec, and this skill
-  has no exemplar for it. A new customer instance needs that companion
-  report built/published first, then this URL updated to point at it —
-  tell the user this is a second deliverable, don't try to fabricate the
-  linked report's content.
+- **The Exec Report Modal's embed is a Sigma "Report" resource, not a
+  second workbook.** Traced via the REST API (`GET /v2/files` by urlId →
+  `type: "report"`; `GET /v2/reports/{id}/schedules` → the report's
+  scheduled-notification config). It is **not** an independently editable
+  spec — `GET /v2/workbooks/{reportId}/spec` 400s with `"does not belong to
+  a workbook"`, and Sigma's own Report API has no spec-equivalent endpoint.
+  A Report is a pinned/scheduled *export* of a page inside an existing
+  workbook (PDF/email delivery, versioned, but opaque via API) — the
+  content it renders isn't a separate exemplar to harvest.
+  The report's dynamic email title formula references
+  `inode-4xBND6rQPM4MvodV4nn68c/NAME` — confirmed present in
+  `examples/chipotle-exemplar-spec.json` as the `RESTAURANTS/Name` column —
+  which proves this report is generated from a page/data already inside
+  the **same** Chipotle Food Safety Command Center workbook we harvested
+  (almost certainly the Manager Report page — see `structure.md`, the
+  single-store print-style report — rendered as a standalone, shareable
+  page). There is nothing left to harvest for the workbook side.
+  **What a new customer instance still needs, separately:** the Report
+  object itself (name, schedule cron, PDF export format, dynamic
+  title/body formula) is a distinct Sigma feature ("Create Report" from a
+  page, or the scheduled-notifications API) that lives outside
+  `/v2/workbooks/spec` — it has to be recreated per customer after the
+  workbook is published, pointing at that customer's own Manager Report
+  page and data. Tell the user this is a small follow-up setup step in the
+  Sigma UI (or a separate API call against the reports/scheduled-
+  notifications endpoints), not something `publish-workbook.sh` produces.
 - **Font family (`Gotham`)** appears in a handful of inline
   `font-family:` spans. Gotham is Chipotle's brand font and may not be
   licensed/available for another customer's Sigma org. Ask the user what
@@ -141,5 +159,7 @@ bar — not "most of them."
 - [ ] Replace `xc-logo` image URL (§4)
 - [ ] Replace or remove the 6 `backgroundImage` decorative texture URLs (§4)
 - [ ] Confirm font-family choice with the user, don't default to Gotham (§5)
-- [ ] Flag the cross-workbook embed as a separate deliverable (§5)
+- [ ] Recreate the Exec Report Modal's Sigma Report (schedule + PDF export
+      config) after publishing, pointed at the customer's Manager Report
+      page — this is a post-publish setup step, not part of spec.json (§5)
 - [ ] Final grep for `chipotle` (case-insensitive) → zero unintended hits

@@ -71,8 +71,12 @@ this pairing pattern when adapting the metrics to a new customer's fields.
   and color-by are suspected). If you re-harvest this workbook or a
   derivative and get a `service_error`, see
   `sigma-workbook-conventions/reference/scope-and-edge-cases.md`.
-- **The Exec Report Modal embeds a second, separate Sigma report** by full
-  URL (a `report/...?:embed=true` link). That embedded report is its own
-  workbook and is NOT captured in this skill's exemplar — a new customer
-  instance needs its own version of that report, and the embed URL updated
-  to point at it. See `branding.md`.
+- **The Exec Report Modal embeds a Sigma "Report" resource**, not a second
+  workbook — a Report is a pinned/scheduled export of a page inside this
+  same workbook (confirmed via the API: it has no `/spec` endpoint, and its
+  dynamic title formula resolves to a column already in this exemplar's
+  data model). It renders the Manager Report page as a standalone,
+  shareable snapshot. Nothing to harvest here, but a new customer instance
+  still needs the Report object itself recreated (schedule, PDF format,
+  title formula) after publishing, since Reports live outside
+  `/v2/workbooks/spec`. See `branding.md` §5.

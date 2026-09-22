@@ -15,9 +15,10 @@ description: >-
   structure, KPI formulas, and AI-agent behavior stay fixed. Prerequisites:
   `sigma-api` (auth), `sigma-data-models` (field-level mechanics),
   `sigma-workbook-conventions` (spec-authoring conventions — read this
-  skill's chunk-reading gate before drafting any plan). Does NOT cover the
-  linked companion "Risk Profile Report" embedded in the Exec Report modal
-  — that's a separate workbook with no exemplar here.
+  skill's chunk-reading gate before drafting any plan). Does NOT cover
+  recreating the Sigma "Report" (scheduled/pinned page export) linked from
+  the Exec Report modal — that's a separate Sigma object type with no
+  spec API, set up per customer after the workbook is published.
 ---
 
 # Food Safety Command Center
