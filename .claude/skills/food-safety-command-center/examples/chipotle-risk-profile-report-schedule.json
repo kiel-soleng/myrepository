@@ -1,0 +1,115 @@
+{
+    "entries": [
+        {
+            "scheduledNotificationId": "334648c1-e242-4478-a41f-78b114b4ade3",
+            "reportId": "d091cd54-66bc-4142-8af1-93dcc2e895b7",
+            "schedule": {
+                "cronSpec": "38 12 * * *",
+                "timezone": "America/Los_Angeles"
+            },
+            "configV2": {
+                "includeLink": true,
+                "runAsRecipient": false,
+                "conditionOptions": {
+                    "type": "always"
+                },
+                "alertConfig": {
+                    "window": "always",
+                    "volume": null
+                },
+                "attachmentSettings": {
+                    "mergePdfAttachments": false,
+                    "zipAttachments": false
+                },
+                "selfContainedDynamicTitle": {
+                    "contents": {
+                        "version": 1,
+                        "doc": [
+                            {
+                                "type": "paragraph",
+                                "attrs": {
+                                    "align": "left",
+                                    "blockStyle": "p-med"
+                                },
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": "Risk Profile Report\u00a0 for "
+                                    },
+                                    {
+                                        "type": "formula",
+                                        "id": "Ht0NWvDPHT"
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "\u00a0| Food Safety Command Center Application"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "formulas": {
+                        "Ht0NWvDPHT": {
+                            "type": "nameRef",
+                            "path": [
+                                "ZxBBzzLwKs",
+                                "inode-4xBND6rQPM4MvodV4nn68c/NAME"
+                            ]
+                        }
+                    }
+                },
+                "selfContainedDynamicMessageBody": {
+                    "contents": {
+                        "version": 1,
+                        "doc": [
+                            {
+                                "type": "paragraph",
+                                "attrs": {
+                                    "align": "left",
+                                    "blockStyle": "p-med"
+                                },
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": "You have received a Risk Profile Report requiring your attention and review. "
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "formulas": {}
+                },
+                "exportDestination": "email",
+                "title": "Risk Profile Report\u00a0 for \u00a0| Food Safety Command Center Application",
+                "messageBody": "You have received a Risk Profile Report requiring your attention and review. ",
+                "notificationName": "Exec Risk Profile Report",
+                "exportEmailTemplateId": null,
+                "notificationAttachments": [
+                    {
+                        "workbookExportSource": {
+                            "type": "report"
+                        },
+                        "formatOptions": {
+                            "type": "PDF",
+                            "layout": "portrait",
+                            "scaleFactor": 0.74,
+                            "pixelWidth": null,
+                            "pixelHeight": null,
+                            "pageSize": "letter"
+                        }
+                    }
+                ]
+            },
+            "isSuspended": false,
+            "ownerId": "vyu350YkZsAx1i21iRgUaIzpjdxG0",
+            "lastUpdatedByUser": "vyu350YkZsAx1i21iRgUaIzpjdxG0",
+            "createdBy": "vyu350YkZsAx1i21iRgUaIzpjdxG0",
+            "updatedBy": "vyu350YkZsAx1i21iRgUaIzpjdxG0",
+            "createdAt": "2026-08-15T00:06:02.040Z",
+            "updatedAt": "2026-08-24T19:42:37.733Z",
+            "disabledAt": "2026-08-24T19:42:38.000Z",
+            "disabledBy": "vyu350YkZsAx1i21iRgUaIzpjdxG0"
+        }
+    ],
+    "nextPage": null
+}

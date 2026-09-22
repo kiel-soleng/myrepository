@@ -1,0 +1,9 @@
+{
+  "reportId": "d091cd54-66bc-4142-8af1-93dcc2e895b7",
+  "reportUrlId": "6lz2dp2LJ28UApSjIYIV95",
+  "name": "Chipotle Risk Profile Report",
+  "url": "https://app.sigmacomputing.com/papercrane/report/Chipotle-Risk-Profile-Report-6lz2dp2LJ28UApSjIYIV95",
+  "harvestedAt": "2026-09-22T22:30:00Z",
+  "input": "6lz2dp2LJ28UApSjIYIV95",
+  "note": "Harvested via GET /v2/reports/{reportId}/spec, not /v2/workbooks/{id}/spec. This is embedded in the main workbook's Exec Report Modal by full app URL."
+}

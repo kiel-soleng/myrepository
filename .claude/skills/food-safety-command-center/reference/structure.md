@@ -72,11 +72,14 @@ this pairing pattern when adapting the metrics to a new customer's fields.
   derivative and get a `service_error`, see
   `sigma-workbook-conventions/reference/scope-and-edge-cases.md`.
 - **The Exec Report Modal embeds a Sigma "Report" resource**, not a second
-  workbook — a Report is a pinned/scheduled export of a page inside this
-  same workbook (confirmed via the API: it has no `/spec` endpoint, and its
-  dynamic title formula resolves to a column already in this exemplar's
-  data model). It renders the Manager Report page as a standalone,
-  shareable snapshot. Nothing to harvest here, but a new customer instance
-  still needs the Report object itself recreated (schedule, PDF format,
-  title formula) after publishing, since Reports live outside
-  `/v2/workbooks/spec`. See `branding.md` §5.
+  workbook. Reports are a distinct resource type with their own spec API —
+  `GET /v2/reports/{reportId}/spec` (not `/v2/workbooks/.../spec`) — and
+  their own schedule API (`GET /v2/reports/{reportId}/schedules`, cron +
+  PDF export format + dynamic title formula). Harvested as a second
+  exemplar: `examples/chipotle-risk-profile-report-spec.json` (58 elements,
+  a single-page US-letter print layout: KPIs, tables, a gauge-chart, no AI
+  agents) and `examples/chipotle-risk-profile-report-schedule.json`. See
+  `branding.md` §5 for its own (smaller) branding token set — it has a
+  different logo asset and a slightly different brand-red hex than the
+  main workbook, so rebrand it as its own pass, not as a byproduct of
+  rebranding the workbook.

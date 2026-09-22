@@ -113,39 +113,53 @@ bar — not "most of them."
 | `xc-logo` | `source.url` | `chipotle.com/.../cmg-medallion-logo.svg` | Replace with customer's logo URL (must be a publicly reachable image URL — Sigma renders it as an `<img src>`, no auth) |
 | 6 elements with `backgroundImage.source.url` (`ug36f8WhFL`, `CafGDFhOFO`, `ymFZTtQ1D4`, `3UJGdXWX9D`, `0Jp3vChmAM`, `XVexK_rOb4`) | `backgroundImage.source.url` | `chipotle.com/.../pattern-ingredients.svg` — a decorative background texture, not a logo | Either replace with a customer-brand texture/pattern, or delete the `backgroundImage` key and let it fall back to `backgroundColor` — decorative texture is optional, don't force a customer to have one |
 
-## 5. Out of scope for this skill (flag to the user, don't silently drop)
+## 5. The companion "Risk Profile Report" — a second, real exemplar
 
-- **The Exec Report Modal's embed is a Sigma "Report" resource, not a
-  second workbook.** Traced via the REST API (`GET /v2/files` by urlId →
-  `type: "report"`; `GET /v2/reports/{id}/schedules` → the report's
-  scheduled-notification config). It is **not** an independently editable
-  spec — `GET /v2/workbooks/{reportId}/spec` 400s with `"does not belong to
-  a workbook"`, and Sigma's own Report API has no spec-equivalent endpoint.
-  A Report is a pinned/scheduled *export* of a page inside an existing
-  workbook (PDF/email delivery, versioned, but opaque via API) — the
-  content it renders isn't a separate exemplar to harvest.
-  The report's dynamic email title formula references
-  `inode-4xBND6rQPM4MvodV4nn68c/NAME` — confirmed present in
-  `examples/chipotle-exemplar-spec.json` as the `RESTAURANTS/Name` column —
-  which proves this report is generated from a page/data already inside
-  the **same** Chipotle Food Safety Command Center workbook we harvested
-  (almost certainly the Manager Report page — see `structure.md`, the
-  single-store print-style report — rendered as a standalone, shareable
-  page). There is nothing left to harvest for the workbook side.
-  **What a new customer instance still needs, separately:** the Report
-  object itself (name, schedule cron, PDF export format, dynamic
-  title/body formula) is a distinct Sigma feature ("Create Report" from a
-  page, or the scheduled-notifications API) that lives outside
-  `/v2/workbooks/spec` — it has to be recreated per customer after the
-  workbook is published, pointing at that customer's own Manager Report
-  page and data. Tell the user this is a small follow-up setup step in the
-  Sigma UI (or a separate API call against the reports/scheduled-
-  notifications endpoints), not something `publish-workbook.sh` produces.
-- **Font family (`Gotham`)** appears in a handful of inline
-  `font-family:` spans. Gotham is Chipotle's brand font and may not be
-  licensed/available for another customer's Sigma org. Ask the user what
-  font (if any) their org has configured before carrying this over — falling
-  back to the theme default font is safer than assuming Gotham renders.
+Correction to an earlier pass at this file: the Exec Report Modal's embed
+is a Sigma **Report** object, a resource type distinct from workbooks —
+but it is NOT opaque via the API. `GET /v2/workbooks/{id}/spec` 400s on a
+reportId (`"does not belong to a workbook"`) because that's the wrong
+endpoint, not because Reports lack one — the right endpoint is
+`GET /v2/reports/{reportId}/spec`, which returns a full `document` (same
+shape as a workbook: `elements`, `pages`, `layout`, `settings`), harvested
+here as `examples/chipotle-risk-profile-report-spec.json` (58 elements, 3
+pages: one visible `Report 1` page sized to US letter at 96dpi —
+`config.pageWidth: 816, pageHeight: 1056` — plus 2 hidden pages). Its
+schedule (cron, PDF export format, dynamic email title/body formula) is
+also readable via `GET /v2/reports/{reportId}/schedules`, harvested as
+`examples/chipotle-risk-profile-report-schedule.json`. Sigma also documents
+`POST /v2/reports` (create, with an optional beta `contents` param) and an
+"update a report from a code representation" beta endpoint for publishing
+— exact PUT/POST path and payload shape for updating an existing report's
+spec should be confirmed against `sigma-data-models`/live docs at build
+time rather than assumed from this note.
+
+This report is simpler to rebrand than the main workbook — no AI agents,
+no `CallText` formulas, no `chipotle.com` mentions in body text. Its
+branding surface is just:
+
+| Token | Location | Action |
+|---|---|---|
+| Report `name` (top-level metadata, "Chipotle Risk Profile Report") | `source.json`-equivalent metadata, set at `POST /v2/reports` creation time | Set to the customer's own report name |
+| Logo image | one `image` element, `source.url` = `https://www.preparedfoods.com/.../Chipotle_Logo_900.jpg` (a *different* logo asset than the main workbook's `xc-logo`) | Replace with customer's logo URL |
+| Brand-accent hex `#a91513` (5 hits) | text/KPI-title color spans, same brand-red role as `#a81712` in the main workbook | Customer primary color |
+| `#59A14E`/`#59a14e` (green), `#e15658` (red) | gauge-chart color stops | **Semantic** (good/bad) — leave as-is, same rule as §2 |
+| `#e2e2e2`, `#898989` | neutral grays | Leave as-is |
+| `document.settings.theme.overrides.fonts.textFont` / `.dataFont` = `"Gotham"` | theme-level font override (this report sets font at the theme level, unlike the main workbook's inline spans) | See font-family note below |
+
+Rebrand this exemplar as its own pass — don't assume fixing the main
+workbook's branding also fixes this file; they're two independent specs
+with two independent asset URLs and two slightly different brand-red
+hexes.
+
+## 6. Font family (`Gotham`)
+
+Both specs use Gotham (inline spans in the main workbook; a theme-level
+`fonts` override in the Risk Profile Report). Gotham is Chipotle's brand
+font and may not be licensed/available for another customer's Sigma org.
+Ask the user what font (if any) their org has configured before carrying
+this over — falling back to the theme default font is safer than assuming
+Gotham renders.
 
 ## Customization checklist (copy into the build plan)
 
@@ -158,8 +172,14 @@ bar — not "most of them."
 - [ ] Replace compliance/SOP link text + URL (§3) — ask user for the real URL
 - [ ] Replace `xc-logo` image URL (§4)
 - [ ] Replace or remove the 6 `backgroundImage` decorative texture URLs (§4)
-- [ ] Confirm font-family choice with the user, don't default to Gotham (§5)
-- [ ] Recreate the Exec Report Modal's Sigma Report (schedule + PDF export
-      config) after publishing, pointed at the customer's Manager Report
-      page — this is a post-publish setup step, not part of spec.json (§5)
-- [ ] Final grep for `chipotle` (case-insensitive) → zero unintended hits
+- [ ] Rebrand `chipotle-risk-profile-report-spec.json` as its own pass:
+      report `name`, its separate logo image URL, and its `#a91513`
+      brand-red hex (§5)
+- [ ] Recreate the report's schedule (cron, PDF export format, dynamic
+      title/body formula) via `POST /v2/reports` + the report-spec/
+      schedules endpoints, pointed at the customer's data — confirm exact
+      publish payload shape at build time (§5)
+- [ ] Confirm font-family choice with the user for both specs, don't
+      default to Gotham (§6)
+- [ ] Final grep for `chipotle` (case-insensitive) across **both** specs →
+      zero unintended hits

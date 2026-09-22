@@ -15,10 +15,10 @@ description: >-
   structure, KPI formulas, and AI-agent behavior stay fixed. Prerequisites:
   `sigma-api` (auth), `sigma-data-models` (field-level mechanics),
   `sigma-workbook-conventions` (spec-authoring conventions — read this
-  skill's chunk-reading gate before drafting any plan). Does NOT cover
-  recreating the Sigma "Report" (scheduled/pinned page export) linked from
-  the Exec Report modal — that's a separate Sigma object type with no
-  spec API, set up per customer after the workbook is published.
+  skill's chunk-reading gate before drafting any plan). Also ships the
+  linked companion "Risk Profile Report" — a distinct Sigma Report
+  resource (own spec + schedule API, harvested as a second exemplar) — as
+  a print-style one-pager with its own, smaller branding token set.
 ---
 
 # Food Safety Command Center
@@ -59,25 +59,31 @@ built and any gaps it exposes get folded back in.
    color (hex), font family (if their Sigma org has one licensed), and the
    customer's own compliance/SOP reference URL. Do not carry over Chipotle's
    `chipotle.com` URLs into another customer's workbook.
-4. Start from `examples/chipotle-exemplar-spec.json` as the structural
-   base. Remap data-model field references (`sigma-data-models`) to the
-   new customer's actual tables/columns — the exemplar's `Audit Feed` /
-   `Task Feed` / `Risk Feed` names are illustrative, not literal
-   requirements.
-5. Work the branding checklist top to bottom. Finish with a case-insensitive
-   grep for the old company name across the new spec.json — zero
-   unintended hits is the bar.
+4. Start from `examples/chipotle-exemplar-spec.json` (the workbook) and
+   `examples/chipotle-risk-profile-report-spec.json` (the companion
+   report) as the structural base for each. Remap data-model field
+   references (`sigma-data-models`) to the new customer's actual
+   tables/columns — the exemplar's `Audit Feed` / `Task Feed` / `Risk
+   Feed` names are illustrative, not literal requirements.
+5. Work the branding checklist top to bottom, for **both** specs — they
+   have independent asset URLs and hex values, so rebranding one doesn't
+   rebrand the other. Finish with a case-insensitive grep for the old
+   company name across both spec.json files — zero unintended hits is the
+   bar.
 6. Follow the standard `sigma-workbook-conventions` POST/GET/visual-verify
-   loop — plan approval is still the only authorization for the
-   state-changing POST.
+   loop for the workbook (`/v2/workbooks/spec`), and the analogous
+   `/v2/reports` flow for the report + its schedule. Plan approval is
+   still the only authorization for either state-changing call.
 
 ## Files
 
 - `reference/structure.md` — canonical pages, overlays, AI agents, gotchas.
 - `reference/kpis.md` — the 8 KPI formulas + current/prior pairing pattern.
 - `reference/branding.md` — the whitelabel token map (colors, logo, company
-  name locations, font, out-of-scope items) and the customization checklist.
-- `examples/chipotle-exemplar-spec.json` — the harvested real spec (workbook
-  id `981e67d6-5cc4-43dd-83b4-9d86a4fb87f4`, org `papercrane`).
-- `examples/chipotle-exemplar-source.json` — harvest provenance (workbook
-  id, name, harvest timestamp).
+  name locations, font) and the customization checklist, covering both specs.
+- `examples/chipotle-exemplar-spec.json` + `-source.json` — the harvested
+  workbook (id `981e67d6-5cc4-43dd-83b4-9d86a4fb87f4`, org `papercrane`).
+- `examples/chipotle-risk-profile-report-spec.json` + `-source.json` +
+  `-schedule.json` — the harvested companion Report (id
+  `d091cd54-66bc-4142-8af1-93dcc2e895b7`), including its schedule/PDF
+  export/dynamic-title config.
