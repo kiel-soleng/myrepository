@@ -14,6 +14,7 @@ rituals previously here have moved to `reference/workflows/crud.md`.
 
 - [Scope of the code representation](#scope-of-the-code-representation)
 - [GET-spec can 500 when UI features aren't representable](#get-spec-500)
+- [POST/PUT can't construct what GET-spec serializes](#post-put-cant-construct)
 - [Map element status](#map-element-status)
 - [Falling back to `warehouse-table` source](#falling-back-to-warehouse-table-source)
 
@@ -132,6 +133,83 @@ that workbook until they're removed.
 `scripts/api/harvest-workbook.sh` fails fast on `service_error`
 responses with a diagnostic message — added 2026-05-21 after four
 workbook harvests all tripped this.
+
+## POST/PUT can't construct
+
+The asymmetry above (`GET-spec 500`) is GET-side: a workbook that renders
+fine in the UI can break the *read* path. This section is the opposite
+direction: layout constructs that GET-spec serializes without complaint,
+but that `POST /v2/workbooks/spec` and `PUT .../spec` can never build from
+scratch — the CREATE-time validator either rejects them outright or, worse,
+fails with a cryptic error that doesn't name the actual cause. Both
+confirmed cases below were found by harvesting a real, UI-built workbook
+and re-POSTing its own GET-spec output unmodified — that alone is enough
+to reproduce.
+
+### `type="stack"` layout containers
+
+A `<Container type="stack" ...>` in the layout XML is how the UI
+represents a couple of stacked/overlapping elements (e.g. a KPI tile with
+an icon layered on top). GET-spec always serializes these as **empty stub
+containers** — it never emits the nested `<Element>` children that must
+logically exist inside them.
+
+Nesting `<Element>` tags inside the stub yourself does **not** fix it —
+confirmed via an isolated test with every other validator error category
+pre-fixed: the elements still come back `"element '<id>' is not placed in
+layout"`. Sigma's placement validator runs last in its error-category
+order (comparison configs → sort refs → waterfall shape → modal actions →
+agent dataSources → placement), so this error can be masked by earlier,
+unrelated errors during iterative fixing — don't conclude a stack fix
+"almost worked" just because a *different* error appeared next; re-test
+the stack fix in isolation once everything else is clean.
+
+**No fix exists.** The only working path found so far: drop the elements
+living inside `type="stack"` containers from the spec (they're typically
+decorative — icon overlays, badge stacking — not load-bearing data
+elements). Surface this to the user before dropping anything; don't
+silently remove elements that turn out to carry data or actions.
+
+### The workbook-level header `panels[]` construct
+
+Some workbooks have a shared, cross-page header (logo, a duplicate
+page-nav bar, decorative icons, a divider) defined via the top-level
+`panels[]` array plus a matching `<Panel id="...">` block in the layout
+XML — a sibling of the `<Page>` blocks, not nested inside one.
+
+GET-spec serializes this correctly. **Any spec containing a `<Panel>`
+layout block fails POST/PUT** with:
+
+```
+Layout parent not found in getLayoutParentByLayoutIdOrFail
+```
+
+This error gives no field path and no hint that a Panel is involved — it
+looks like a generic layout-tree bug. It's easy to misdiagnose as a
+page/overlay count limit if you're bisecting by dropping whole pages —
+any bisection harness that strips unrecognized top-level layout blocks
+(anything whose `id` isn't in the kept-pages set) will silently drop the
+Panel along with whatever page/overlay it's actually testing, making
+*every* reduced test "pass" regardless of the real culprit. Isolate the
+Panel by itself — one trivial page, zero overlays, Panel present — to
+confirm it's the Panel and not a count effect.
+
+**Fix:** duplicate the Panel's children onto each *visible* page as
+ordinary page-scoped elements (fresh element ids, cloned JSON defs, fresh
+action ids too — `"Duplicate layout element id"` / `"Duplicate action
+id"` are both enforced), then drop `panels: []` and the `<Panel>` layout
+block. Skip hidden pages — they never render in the tab bar, so a header
+there is wasted elements. Shift every pre-existing top-level child's
+`gridRow` on that page down by the header's row-span so the two don't
+overlap (only direct children of the `<Page>` node — nested descendants
+are relative to their own parent's coordinate system, not the page's).
+Sigma's native page-tab bar is independent of this custom Panel, so
+page-to-page navigation is unaffected either way; only the custom nav
+bar/logo/icons are lost if you don't clone them.
+
+Confirmed working end-to-end (2026-09-23): a 7-page, 10-overlay, 282-element
+workbook with the header duplicated across 5 visible pages POSTs and PUTs
+cleanly with `verify-workbook.sh` reporting all elements compile.
 
 ## Map element status
 

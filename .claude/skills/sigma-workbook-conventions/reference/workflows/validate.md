@@ -25,7 +25,7 @@ scripts/validate-spec.py workbooks/<name>/spec.json
 |---|---|---|
 | 1 | `passthrough-coverage` | Chart elements with ≤2 cols sourced from tables with ≥5 cols (the passthrough-collapse signature). FAIL on charts; WARN on thin-but-not-collapsed. KPIs excluded. See `reference/conventions.md` → "Passthrough mandate." |
 | 2 | `controlid-collision` | Controls whose `controlId` matches a column `name` or `id` on the filtered element. See `reference/conventions.md` → "Control/column ID collision." |
-| 3 | `name-required-on-passthrough` | Passthrough columns missing explicit `name` field. See `reference/conventions.md` → "Explicit-`name` rule." |
+| 3 | `name-required-on-passthrough` | Passthrough columns missing explicit `name` field. See `reference/conventions.md` → "Explicit-`name` rule." Note: this and check 5 both anchor on the reference being the *entire* formula — a bare `[Table/Col]` wrapped in a function call (`Text([Table/Col])`) with no `name` slips past both and only surfaces at query time via `verify-workbook.sh`. |
 | 4 | `id-uniqueness` | Duplicate element IDs or column IDs within scope. |
 | 5 | `bare-ref-resolution` | Bare `[column_name]` references (no `/`) that don't match any sibling column or controlId. **WARN-level** — Sigma auto-infers some column names (e.g. `DateTrunc("week", [Date])` → "Week of Date") that this regex-based check can't predict, so flags require inspection. Added 2026-05-21 — ported from upstream `validate-spec.sh`. See `reference/specification/formulas.md` → "The #1 formula mistake." |
 | 6 | `schema-keys` | Unknown top-level keys (warns when GET-spec metadata wasn't stripped before PUT). |

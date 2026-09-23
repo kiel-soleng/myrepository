@@ -147,6 +147,22 @@ charts, or controls will reference via
 an aggregation result that only the element itself uses) `name` is
 still good practice but not load-bearing.
 
+**This applies even when the reference is wrapped in a function call, not
+just bare-ref siblings.** `scripts/validate-spec.py`'s
+`bare-ref-resolution` check and the `bare_ref_re` auto-fix pattern some
+rebrand/migration scripts use both anchor on the *whole* formula being a
+bare reference (`^\[...\]$`) — a column like
+`{ "id": "col-x", "formula": "Text([Table/Col])" }` (no `name`) slips past
+both. It POSTs fine, then fails at query time — caught only by
+`verify-workbook.sh`'s post-create check (see `reference/workflows/validate.md`
+→ "Post-create"), reported as `Unknown column "[Col]"` against whatever
+sibling column bare-refs it downstream. Found 2026-09-23 on a
+`Text([ACTION_ITEMS_LIVE/Is Overdue])` column with no `name`; fixed by
+adding `"name": "Is Overdue"`. When writing a bare-ref auto-fix, match
+`\[[^\[\]/]+/([^\[\]]+)\]` anywhere in the formula, not just as the entire
+string — a `Text(...)`/`Round(...)`/etc. wrapper is common enough that the
+narrower anchor misses real cases.
+
 ### Rename-cascade corollary
 
 The flip side: **renaming a source-of-truth table's `name` field
