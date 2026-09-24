@@ -13,6 +13,7 @@ Load-bearing gotchas (read first):
 - [⚠️ READ FIRST — The #1 formula mistake](#-read-first--the-1-formula-mistake)
 - [⚠️ READ SECOND — Raw vs. friendly column names](#-read-second--raw-vs-friendly-column-names)
 - [⚠️ READ THIRD — Boolean operators are NOT function calls](#-read-third--boolean-operators-are-not-function-calls)
+- [Grouped-table aggregation: bare sibling columns can poison an aggregate](#grouped-table-aggregation-bare-sibling-columns-can-poison-an-aggregate)
 
 Reference rules:
 
@@ -281,6 +282,7 @@ name**, not the upstream data-model element's name.
 | `Power([X], 2)` | `[X] ^ 2` | Use `^` for power, not `Power()` |
 | `Mod([X], 7)` | `[X] % 7` | Use `%` for modulo, not `Mod()` |
 | `Case WHEN ... THEN ...` | `If(<cond>, <then>, <else>)` | Sigma has no `Case`; use chained `If` |
+| `Date(2026, 9, 21)` | `Date("2026-09-21")` | `Date()` takes exactly one string argument, not (year, month, day) |
 
 ## Operators
 
@@ -331,6 +333,59 @@ above.
 
 Date parts (must be quoted strings): `"year"`, `"quarter"`,
 `"month"`, `"week"`, `"day"`, `"hour"`, `"minute"`, `"second"`.
+
+`Date()` takes exactly one argument — a date string — not
+`Date(year, month, day)`. The multi-argument form does not error at
+POST/PUT time; it compiles into a literal error string (`'Date expected
+1 argument, got 3'`) embedded in the generated SQL, which then silently
+poisons every downstream formula that references the errored column.
+Neither `scripts/validate-spec.py` nor `verify-workbook.sh` catches this
+(they grep for `"Unknown column"` / `"Circular reference"` only) — the
+only reliable way to catch it is pulling compiled SQL directly via `GET
+/v2/workbooks/{id}/elements/{elementId}/query` and reading the `sql`
+field for embedded `'...'` error strings.
+
+## Grouped-table aggregation: bare sibling columns can poison an aggregate
+
+A non-aggregate ("bare") column inside a grouped table is compiled with a
+per-group dedup: `iff(equal_null(min(x), max(x)), max(x), null)`. If the
+group's underlying rows actually disagree on that value (common — e.g. a
+per-week value inside a per-restaurant grouping), the deduped bare column
+is `null` for every row of that group.
+
+If a *different* aggregate formula in the same table references that
+bare column **by its display name** (`Max([Weekly Risk Score])`) instead
+of the raw qualified source column (`Max([Risk Join/RISK_SCORE])`), the
+aggregate computes over the already-poisoned `null`, not the real
+per-row data. The visible symptom is a `null` KPI, or — for a sparkline
+aggregate (`SparklineAgg(...)`) — an "Error parsing sparkline value"
+render error, even though the underlying warehouse data is present and
+varies correctly.
+
+**Fix:** inside any aggregate formula, always reference the raw qualified
+join/source column, never a sibling bare-passthrough column by its
+display name — even when they resolve to "the same value" conceptually.
+Confirm the fix by re-pulling compiled SQL (`GET
+.../elements/{elementId}/query`) and checking that the aggregate's SQL
+expression reads the raw source column, not an `iff(equal_null(...))`
+wrapper. This is invisible from the spec JSON alone — two formulas that
+look equally reasonable (`Max([Weekly Risk Score])` vs.
+`Max([Risk Join/RISK_SCORE])`) compile very differently depending on
+whether `[Weekly Risk Score]` is itself a bare passthrough elsewhere in
+the same table.
+
+Also watch for the same conceptual field having **different formulas or
+names across sibling table elements** that source the same join (one
+table names a column and aggregates it with `Max`, another leaves it
+unnamed and aggregates the same underlying field with `Avg`, auto-naming
+itself from the function — e.g. "Avg of Risk Score"). Copy-pasting one
+sibling's fix verbatim to the other can change which aggregate function
+backs an auto-derived name a third element depends on
+(`[TableName/Avg of Risk Score]`), breaking that consumer with
+`Dependency not found`. Diff each sibling's *original* formula (and
+whether it has an explicit `name` field or an auto-derived one) before
+patching — don't assume identical-looking columns across sibling
+elements have identical semantics.
 
 ## Conditional
 

@@ -254,3 +254,98 @@ Rules going forward:
   HTML stops triggering false positives.
 - `scripts/api/harvest-workbook.sh` → fail-fast on `service_error`
   responses with diagnostic message + cleanup of bogus spec.json.
+
+## 2026-09-24 — Post-rebrand data seeding: `Date()` syntax, aggregate-over-sibling `null`, and a destructive `Ctrl+A` in an input-table grid
+
+Whitelabeling the `food-safety-command-center` exemplar for a second
+customer (Carl's Jr) surfaced a cluster of issues that only show up once
+you try to seed *real customer data* into a rebranded instance, not just
+retext the spec. Full narrative and the generalized recipe now live in
+that skill's `reference/data-seeding.md`; the formula-language findings
+below are generic enough to land here too.
+
+1. **`Date(2026, 9, 21)` compiles, doesn't error at PUT, and silently
+   poisons everything downstream.** `Date()` takes exactly one string
+   argument. The 3-argument form produces a literal `'Date expected 1
+   argument, got 3'` string embedded in the compiled SQL for that
+   column, and every formula referencing it inherits the poison. Neither
+   `validate-spec.py` nor `verify-workbook.sh` catches this — they only
+   grep for `"Unknown column"` / `"Circular reference"`. Only found by
+   pulling compiled SQL directly (`GET .../elements/{id}/query`) and
+   reading the `sql` field for embedded quoted error strings. Added to
+   `formulas.md` → Common mistakes table + a note under Date functions.
+2. **An aggregate referencing a bare sibling column by display name can
+   silently return `null`, not an error.** Grouped tables dedupe bare
+   (non-aggregate) columns via `iff(equal_null(min(x), max(x)), max(x),
+   null)`; if the group's rows actually disagree (a per-week value in a
+   per-restaurant grouping — they will), the deduped bare column is
+   `null`. A separate `Max(...)`/`Avg(...)` formula that references that
+   bare column by its display name instead of the raw qualified source
+   column then aggregates over the poisoned `null`. Visible symptom: a
+   `null` KPI, or for `SparklineAgg(...)`, an "Error parsing sparkline
+   value" render error — despite the warehouse data being completely
+   fine. Fix is always to reference the raw qualified source column
+   inside the aggregate, never the sibling bare-passthrough by name.
+   Compounding trap: two sibling table elements sourcing the same join
+   had this bug fixed with the *same* replacement formula pasted to
+   both — but one sibling aggregated the field with `Max` under an
+   explicit name ("Risk Score") while the other left it unnamed and
+   aggregated with `Avg`, auto-deriving the display name "Avg of Risk
+   Score" that a third element depended on
+   (`[TableName/Avg of Risk Score]`). Copying the `Max` fix to both
+   siblings changed the auto-derived name on the second one and broke
+   the third element with `Dependency not found`. New section added to
+   `formulas.md`: "Grouped-table aggregation: bare sibling columns can
+   poison an aggregate."
+3. **`Ctrl+A` inside an input-table's editable grid (browser UI, not the
+   spec API) selects the entire grid including column headers —
+   Backspace/Delete then deletes the column structure itself**, not
+   just cell contents. All custom columns on that element were gone,
+   collapsed to just the two system columns (`Created at`, `ID`).
+   Columns were rebuilt one at a time via the right panel's
+   `+ ADD COLUMN` (type picker → double-click new header → rename), and
+   Sigma's own Draft → Versions → Version history confirmed each add
+   committed server-side (paired `Create`/`Commit input table edits`
+   events) — but the rebuilt columns were never writable in-place after
+   that: neither a full-row paste nor a single typed cell value
+   persisted, across many retries with generous waits, even after a
+   full `Publish`. Reads (compiled SQL) looked completely normal — real
+   backing column ids, no error markers — so this doesn't surface as a
+   validation error anywhere; the write just silently doesn't take.
+   Root cause undetermined. Working recovery: CSV-upload a fresh
+   replacement table with the same columns, then repoint the damaged
+   element's `source` to `{"kind": "linked", "from": "<new-table-id>"}`
+   (keeps the damaged element's own id so existing
+   controls/consumers referencing it by elementId+columnId keep
+   working). Two follow-on traps discovered getting *that* to validate:
+   an `input-table`-kind element's `source` cannot be
+   `{"kind": "table", ...}` (plain passthrough) — PUT rejects with
+   `Invalid kind: "input-table"`, it must be `"linked"`; and a `linked`
+   table's own column formulas must reference the linked source's raw
+   column ids directly (bare `[PRIORITY]` compiles to `'Unknown column
+   "[PRIORITY]"'`, not a resolved reference) — the bare-name convention
+   used elsewhere for join sources does not apply here. Also: any
+   `insert-rows` action effect targeting an element rejects the whole
+   PUT once that element becomes `linked` (`cannot insert rows into a
+   linked input table (use update-rows instead)`) — safe to drop the
+   effect if its `values` map was already an empty no-op, otherwise the
+   action needs a real redesign first. Full recipe (CSV-seeding
+   pattern, browser-automation scroll/paste stabilization pattern,
+   picklist-column value matching) in
+   `food-safety-command-center/reference/data-seeding.md`; this is the
+   first skill to need it, but the recipe and the three gotchas above
+   are written customer/skill-agnostic on purpose.
+
+Rules going forward:
+
+- `formulas.md` → Common mistakes table gets the `Date()` one-liner;
+  Date functions section gets the fuller poisoning explanation; new
+  "Grouped-table aggregation: bare sibling columns can poison an
+  aggregate" section (also added to the TOC).
+- `food-safety-command-center/reference/data-seeding.md` (new file) —
+  the full generalized data-seeding recipe + the `Ctrl+A` incident and
+  its recovery path, written so any future skill needing to seed
+  input-table data can reuse it verbatim.
+- `food-safety-command-center/SKILL.md` and `reference/structure.md` →
+  cross-referenced the new doc as workflow step 7 / a new "Known
+  gotcha."

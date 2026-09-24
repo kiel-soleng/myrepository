@@ -74,6 +74,18 @@ built and any gaps it exposes get folded back in.
    loop for the workbook (`/v2/workbooks/spec`), and the analogous
    `/v2/reports` flow for the report + its schedule. Plan approval is
    still the only authorization for either state-changing call.
+7. **Seed real customer data — this is not optional and not covered by
+   steps 1–6.** Rebranding the spec only changes labels; it does not
+   replace the old customer's rows in warehouse-backed tables, and Sigma
+   has no REST write path for input-table rows at all, so every input
+   table with demo data in the exemplar comes through harvest as
+   structurally correct but empty. Read `reference/data-seeding.md` in
+   full before telling the user the rebuild is done — it has the
+   synthetic-data + browser-automation recipe for both problems, plus
+   several non-obvious formula/platform gotchas (a `Date()` syntax trap
+   that silently poisons downstream formulas, an aggregate-over-sibling
+   `null`-KPI trap, and a destructive `Ctrl+A`-in-a-grid trap with its
+   recovery path) that cost real debugging time to discover.
 
 ## Files
 
@@ -81,6 +93,13 @@ built and any gaps it exposes get folded back in.
 - `reference/kpis.md` — the 8 KPI formulas + current/prior pairing pattern.
 - `reference/branding.md` — the whitelabel token map (colors, logo, company
   name locations, font) and the customization checklist, covering both specs.
+- `reference/data-seeding.md` — how to actually populate a rebranded
+  instance with real customer data: replacing warehouse-backed tables,
+  seeding empty input tables via browser automation (Sigma has no REST
+  write path for input-table rows), and the formula/platform gotchas
+  that surfaced doing this for real (`Date()` syntax, aggregate-over-
+  sibling `null` poisoning, dropped image configs, and a destructive
+  `Ctrl+A`-in-a-grid trap plus its recovery path).
 - `examples/chipotle-exemplar-spec.json` + `-source.json` — the harvested
   workbook (id `981e67d6-5cc4-43dd-83b4-9d86a4fb87f4`, org `papercrane`).
 - `examples/chipotle-risk-profile-report-spec.json` + `-source.json` +

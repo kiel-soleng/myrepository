@@ -61,6 +61,16 @@ this pairing pattern when adapting the metrics to a new customer's fields.
 
 ## Known gotchas (carried over from the exemplar — flag, don't silently fix)
 
+- **Input tables in the "Data Model" / "Data for Manager Report" hidden
+  pages come through harvest empty.** Sigma has no REST write path for
+  input-table rows — a harvested-and-republished instance is
+  structurally correct but has zero rows in every input table that had
+  manually-seeded demo data (temperature logs, corrective actions,
+  completion/attestation logs, scenario tables, risk report profiles).
+  This is the dominant cause of "No data" showing up across a
+  rebranded instance's pages. See `reference/data-seeding.md` for the
+  fix (browser-automation CSV upload) and a hard warning about
+  `Ctrl+A` inside an input-table's grid.
 - **Manager Report header is static text, not formula-bound.** The header
   reads `General Manager: M. Alvarez · Monday, August 17, 2026` as a literal
   string, not driven by the selected-restaurant control. When adapting this
