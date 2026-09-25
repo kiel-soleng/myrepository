@@ -349,3 +349,98 @@ Rules going forward:
 - `food-safety-command-center/SKILL.md` and `reference/structure.md` →
   cross-referenced the new doc as workflow step 7 / a new "Known
   gotcha."
+
+## 2026-09-25 — KPI row recovery, `equal_null` bug at a third call site, and two more misleading errors
+
+Continuing the same rebrand (Carl's Jr Food Safety Command Center). User
+reported "the KPIs are missing" on the Executive Command Center and "the
+map has no dots plotted" — both traced and fixed; findings below.
+
+1. **The `type="stack"` KPI-row-loss failure mode, confirmed end to end.**
+   The exemplar's Executive Command Center KPI row lives inside a
+   `type="stack"` container. Per the existing entry in
+   `scope-and-edge-cases.md`, GET-spec always serializes `type="stack"`
+   as an empty stub with no children. In THIS workbook's history, the 16
+   `kpi-chart` elements had been deleted from `elements[]` entirely at
+   some earlier point (presumably to silence the placement validator
+   after a POST/PUT saw them unplaced) — leaving the KPI row blank with
+   zero errors anywhere: the elements were gone, not broken. Recovered by
+   diffing the untouched harvest exemplar's `elements[]` against the live
+   spec by id, re-adding the missing `kind: "kpi-chart"` elements, and
+   replacing the container's `type="stack"` with `type="grid"` plus
+   ordinary `<Element gridColumn=... gridRow=.../>` children (no fix
+   exists for stack itself — dropping it is the only path, consistent
+   with the existing entry). Detail + corrected pattern notes added to
+   `food-safety-command-center/reference/kpis.md`.
+2. **The `equal_null`/dedup-poisoning bug (first seen in `reference/
+   specification/formulas.md` → "Grouped-table aggregation") also fires
+   at a THIRD, more surprising call site: inside a `region-map` element's
+   own *implicit* per-category grouping**, not just in an explicit
+   `groupings` block. A `Max(If([bare-sibling] = "X", [bare-sibling],
+   Null))` value column on the map poisoned to `null` for the same reason
+   as the grouped-table case — confirmed the native `MaxIf(...)` builtin
+   compiles to the exact same broken `iff(equal_null(...), ...)` shape,
+   so switching to the "native" aggregate function is **not** a fix by
+   itself. The only working fix: add a new column on the upstream table
+   at the correct grain, whose formula references *only* raw qualified
+   source columns (never a bare passthrough of another calculated
+   column) inside the `MaxIf`/`If`, then have the map wrap that already-
+   clean column. Promote this to `formulas.md` as a second confirmed call
+   site for the existing rule (not a new rule).
+3. **Two more misleading top-level error messages, same family as the
+   existing `Invalid kind: "input-table"` entry above:**
+   - `elements[N].columns[M]: system column 'CREATED_AT' cannot set
+     'type' or 'formula'` is keyed off the column's **id**, not its
+     display `name`. A legitimate, non-system column can be named
+     `"CREATED_AT"` for display purposes while its `id` is something
+     else entirely (e.g. `CREATED_AT_1`) — that column is NOT a system
+     column and needs its `type` set like any other. Conversely, a
+     column whose `id` genuinely is one of `CREATED_AT` / `UPDATED_AT` /
+     `UPDATED_BY` / `CREATED_BY` must have *neither* `type` nor `formula`
+     set, even if its display `name` differs. Any pre-PUT stripping pass
+     for this rule must filter on `id`, not `name` — filtering on `name`
+     silently misses real system columns whose name was customized and
+     wrongly strips a legitimate column that merely happens to be named
+     the same as a system column.
+   - `elements[N]: Dependency not found: '<table>/<column>'` can mean a
+     completely unrelated column's id lingers in a stale
+     `groupings[].calculations` array after that column was deleted from
+     `columns[]` elsewhere in the same edit. The error names the
+     *consumer* of the broken grouping (some other formula that
+     references a column produced by that grouping), not the dangling
+     id itself — so the reported table/column is a red herring; the fix
+     is to audit every `groupings[].calculations`/`groupBy` array on the
+     table named in the *columns[]* diff, not the element in the error
+     message.
+4. **A `kpi-chart`'s `comparison.display` config with no
+   `comparisonColumn` rejects at PUT** with `requires a comparison
+   column or period comparison on the KPI` — drop `comparison` entirely
+   for a KPI with no natural prior-period value to diff against, rather
+   than leaving a dangling `display` setting.
+5. **Stale pre-rebrand `warehouse-table` sources can hide behind a
+   secondary/derived element, invisible from the pages that look
+   correct.** Two elements (`FOOD_SAFETY_AUDITS`-named table and its own
+   upstream `TASK_COMPLETIONS`-named lookup target) were still pointed at
+   the old customer's raw warehouse schema, feeding one Risk & Response
+   scatter chart and a "Danger Zone" KPI — found only by grepping the
+   whole spec for every element whose `source.kind` is still
+   `"warehouse-table"` against the pre-rebrand connection/schema, not by
+   symptom-chasing from a visibly broken page. Left unfixed this pass
+   (out of scope for the reported symptoms) but documented in
+   `food-safety-command-center/reference/kpis.md` under "Danger Zone's
+   dependency chain is fragile" so the next pass knows to grep for this
+   class of straggler up front instead of rediscovering it per-symptom.
+
+Rules going forward:
+
+- `formulas.md` → "Grouped-table aggregation: bare sibling columns can
+  poison an aggregate" section gets a note that `region-map`'s implicit
+  grouping is a second confirmed call site, and that `MaxIf(...)` is not
+  immune.
+- `food-safety-command-center/reference/kpis.md` → corrected the
+  current/prior-pairing description (the prior twin is not required for
+  the trend arrow) and added the stack-container KPI-loss recovery
+  recipe, the `comparison.display`-without-column error, and the
+  stale-warehouse-table straggler warning.
+- Column-stripping helper scripts for the system-column PUT rule must
+  match on column `id`, never `name`.

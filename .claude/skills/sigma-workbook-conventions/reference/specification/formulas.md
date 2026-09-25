@@ -387,6 +387,21 @@ whether it has an explicit `name` field or an auto-derived one) before
 patching — don't assume identical-looking columns across sibling
 elements have identical semantics.
 
+**Second confirmed call site: a `region-map` element's own implicit
+grouping.** The same `equal_null`-dedup poisoning fires even without an
+explicit `groupings` block — a `region-map` implicitly groups by its
+geo-dimension (e.g. restaurant, then again up to state), and a `Max(If(...))`
+value column that mixes bare-sibling references inside that implicit
+grouping poisons exactly the same way. Critically, **switching to the
+native `MaxIf(...)` builtin is not a fix** — it was confirmed to compile
+to the identical `iff(equal_null(min(x), max(x)), max(x), null)` shape as
+the hand-written `Max(If(...))` form. The only working fix follows the
+same rule as above: add a *new* column on the upstream table at the
+correct grain, whose formula references only raw qualified source columns
+(never a bare passthrough of another calculated column), then have the
+map (or whatever's doing the outer aggregation) wrap that already-clean
+column instead of re-deriving it inline.
+
 ## Conditional
 
 ```
