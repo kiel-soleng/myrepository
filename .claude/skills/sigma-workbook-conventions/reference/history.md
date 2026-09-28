@@ -444,3 +444,68 @@ Rules going forward:
   stale-warehouse-table straggler warning.
 - Column-stripping helper scripts for the system-column PUT rule must
   match on column `id`, never `name`.
+
+## 2026-09-28 — The real cause of the "Dependency not found" red herring: cloned elements sharing column/grouping ids
+
+Follow-up to the entry above. Went back to actually fix the Danger Zone
+KPI's stale-warehouse-table chain (previously deferred). The misleading
+`Dependency not found: '<table>/<column>'` error came back immediately
+when repointing `coRzP22a4w` (FOOD_SAFETY_AUDITS)'s `source` off the old
+warehouse table — even after trying every combination of: dropping the
+missing `AUDITOR` raw column, cleaning the dangling `groupings.calculations`
+ref to it, keeping vs. dropping the `Lookup()` pattern, wrapping the target
+in `Max()`, and switching the Lookup *target* table's own source between
+`warehouse-table` and `sql`. None of it mattered — because none of it was
+the actual cause.
+
+**Root cause, found by bisecting one element change at a time against a
+real PUT (not by reasoning from the spec alone):** this workbook has
+**three separate elements — `coRzP22a4w`, `Qu3ZVptg2K` ("...For Repeater
+Element"), and `RInHb2VUxA` ("Audit Detail for Risk Drivers & Trends")
+— that are clones of the same original table and share the exact same
+column ids *and* the exact same `groupings[0].id`**, evidently produced by
+copy-pasting the element in the Sigma UI without regenerating ids. As long
+as all clones stay byte-identical this is silently tolerated. The moment
+**one** clone's `source`/columns/groupings change while the others keep
+the old shared ids, Sigma's dependency graph — which resolves at least
+some of this by id, not per-element — reports the *unrelated* clone's
+column as unresolvable, using whatever bare name that clone happens to hit
+first. That's why the reported table/column kept changing as unrelated
+edits were made nearby (`miss task rate` → `failed audit` → `restaurant
+id` from a totally different clone) despite touching only one element each
+time: the error was never about the column named in the message; it was
+about *some* clone's copy of a colliding id being out of sync.
+
+**Fix:** grep the whole spec for every column id (and `groupings[].id`)
+that appears in more than one element's `columns[]`/`groupings[]` — that
+is the actual collision set. Apply the *same* source/formula changes to
+every element in that set, not just the one you started from. (Finding the
+set: `json.dumps(spec).count(column_id)` > the number of elements you
+expect to declare it, or just grep for the column's declared `name` across
+`elements[]` and check which other elements define a column with the same
+`id`.)
+
+**Separately, while chasing this:** confirmed that `[Table/Column]`
+self-references resolving to a raw SQL/input-table output column are
+**case-insensitive but not whitespace-insensitive** — `[FOOD_SAFETY_AUDITS/
+Category]` matches a raw `CATEGORY` output (differs only by case) with no
+formula change needed, but `[FOOD_SAFETY_AUDITS/Restaurant Id]` does
+**not** match a raw `RESTAURANT_ID` output (space vs. underscore is a
+different string) and must be rewritten explicitly. When repointing a
+table's `source` to a different raw shape, audit every multi-word bare
+self-reference, not just the ones you already suspect.
+
+Rules going forward:
+
+- `sigma-workbook-conventions` → new rule: before editing any table-kind
+  element's `source`, grep the whole spec for its column/grouping ids
+  appearing on any *other* element. If found, the elements are cloned with
+  colliding ids and must be patched together — never in isolation — or a
+  misleading `Dependency not found` naming an unrelated column/element
+  will follow.
+- `food-safety-command-center/reference/kpis.md` → the Danger Zone KPI is
+  now fixed (repointed `coRzP22a4w`/`Qu3ZVptg2K`/`RInHb2VUxA` at the real
+  `FOOD_SAFETY_AUDITS_NEW` input-table, `D3cTVBqaw7` at the real
+  `TASK_COMPLETIONS_NEW` input-table, both via `source: {"kind": "table",
+  "elementId": "..."}` rather than Custom SQL) — remove the "left
+  unfixed" note from the 2026-09-25 entry above; it no longer applies.

@@ -74,14 +74,41 @@ logical definition (period comparison, tier bucketing, rate-of-X-over-Y).
   threshold differs, this needs to change in the formula text, not just the
   underlying data.
 - **Danger Zone's dependency chain is fragile — expect it to need its own
-  fix pass.** `[FOOD_SAFETY_AUDITS/Danger Zone Stores]` depends on a
-  sibling `Miss Task Rate` column that `Lookup()`s into a *separate*
-  warehouse-table element (`TASK_COMPLETIONS` in the exemplar). Both of
-  those source tables are easy to miss during a rebrand's data-reseeding
-  pass because they're not the same elements as the page-level `Task
-  Feed`/`Audit Feed` — grep the whole spec for every element whose
-  `source.kind` is still `"warehouse-table"` pointed at the old
-  connection's schema, not just the ones directly wired to visible charts.
-  A stale source here fails the *whole* Danger Zone KPI (and any other
-  chart sharing that table, e.g. a scatter chart plotting Miss Task Rate)
-  even though nothing about the KPI element itself looks wrong.
+  fix pass, and expect the fix to be more involved than it looks.**
+  `[FOOD_SAFETY_AUDITS/Danger Zone Stores]` depends on a sibling `Miss
+  Task Rate` column that `Lookup()`s into a *separate* warehouse-table
+  element (`TASK_COMPLETIONS` in the exemplar). Both of those source
+  tables are easy to miss during a rebrand's data-reseeding pass because
+  they're not the same elements as the page-level `Task Feed`/`Audit
+  Feed` — grep the whole spec for every element whose `source.kind` is
+  still `"warehouse-table"` pointed at the old connection's schema, not
+  just the ones directly wired to visible charts. A stale source here
+  fails the *whole* Danger Zone KPI (and any other chart sharing that
+  table, e.g. a scatter chart plotting Miss Task Rate) even though
+  nothing about the KPI element itself looks wrong.
+
+  **The `FOOD_SAFETY_AUDITS`-named table is also very likely cloned 2-3x
+  with *colliding column and grouping ids* (`coRzP22a4w` /
+  `"...For Repeater Element"` / `"Audit Detail for Risk Drivers &
+  Trends"` in this exemplar) — repointing just one clone's `source`
+  produces a maximally confusing `Dependency not found: '<table>/
+  <column>'` error naming an unrelated column on a *different* clone, not
+  the one you're editing. See `sigma-workbook-conventions/reference/
+  history.md` → "2026-09-28" for the full diagnosis. Before touching this
+  chain, grep the whole spec for every place `coRzP22a4w`'s (or your
+  workbook's equivalent) column/grouping ids reappear, and patch every
+  clone identically in the same PUT.**
+
+  Working fix (confirmed): repoint the `FOOD_SAFETY_AUDITS`-named
+  clone(s) and the `TASK_COMPLETIONS`-named Lookup target at the
+  customer's real CSV-seeded **input-table** elements directly —
+  `source: {"kind": "table", "elementId": "<the *_NEW input-table's
+  id>"}` — rather than wrapping them in hand-written Custom SQL. Update
+  each raw passthrough formula to the input-table's actual column ids
+  (bare self-references are case-insensitive but NOT whitespace-
+  insensitive: `[Table/Category]` still matches a raw `CATEGORY` output,
+  but `[Table/Restaurant Id]` does *not* match `RESTAURANT_ID` — rewrite
+  every multi-word bare ref explicitly). Drop any column that doesn't
+  exist in the new input-table (e.g. `Auditor` had no `AUDITOR` column in
+  the reseeded data) from every clone, plus from any chart that
+  references it directly.
