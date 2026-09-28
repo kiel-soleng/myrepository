@@ -9,11 +9,23 @@ fixes both. Read this before telling a user a rebrand is "done."
 
 1. **Warehouse-backed tables carry the old customer's rows.** `RESTAURANTS`,
    `RISK_SCORES`, `FOOD_SAFETY_AUDITS`, `ACTION_ITEMS`, `ACTION_LOG`,
-   `TASKS`, `TASK_COMPLETIONS`, `EMPLOYEES` (or your customer's equivalent
-   Custom-SQL/warehouse-table sources) resolve to whatever restaurant chain
-   the exemplar was harvested from. A rebrand that only touches labels
-   leaves every store name, address, and score literally showing the old
-   brand.
+   `TASKS`, `TASK_COMPLETIONS`, `EMPLOYEES`, `PROMO_ELASTICITY`,
+   `SALES_FORECAST_SC` (or your customer's equivalent Custom-SQL/
+   warehouse-table sources) resolve to whatever restaurant chain the
+   exemplar was harvested from. A rebrand that only touches labels leaves
+   every store name, address, and score literally showing the old brand.
+   **This is a bigger surface than it looks — confirmed by walking the
+   whole exemplar spec (2026-09-28):** 14 elements source directly from
+   `SE_INTERNAL_DB.SCHEMA_KIEL.*` as `kind: "warehouse-table"`, plus 6
+   more `kind: "sql"` Custom SQL elements whose statement text references
+   `SCHEMA_KIEL.<table>` inline — 20 elements total across those 10
+   tables. Three of those 14 (`coRzP22a4w`, `"...For Repeater Element"`,
+   `"Audit Detail for Risk Drivers & Trends"`) are clones of the same
+   `FOOD_SAFETY_AUDITS` table sharing colliding column/grouping ids (see
+   `sigma-workbook-conventions/reference/history.md` → 2026-09-28) — patch
+   every clone identically, never just the one you started from. Grep the
+   whole spec for `SCHEMA_KIEL` before declaring the data-source rewire
+   done; don't rely on only fixing the elements a page visibly renders.
 2. **Input tables (`kind: "empty"` or `"linked"`) come across empty.**
    Sigma has **no REST write endpoint for input-table row data** — GET/PUT
    `/v2/workbooks/.../spec` round-trips structure only. Any input table
@@ -28,10 +40,15 @@ fixes both. Read this before telling a user a rebrand is "done."
 
 ## Fix 1 — replace warehouse-backed tables
 
-1. Generate synthetic data with realistic FKs and a fixed "today" anchor
-   (`TODAY = date(...)`) so risk trends/date-diffs line up. Reuse one
-   generator module across all tables (store list, employee names, FK
-   pools) so `RESTAURANT_ID`/`EMPLOYEE_ID` joins stay consistent.
+1. Generate synthetic data with realistic FKs via
+   `scripts/generate_demo_data.py --customer-name "..." --out-dir ...`
+   (checked-in module, not a one-off scratch script — see its docstring
+   for the full table list and CLI options). It anchors dates to
+   `--as-of` (default: today, not a hardcoded literal), and derives a
+   deterministic RNG seed from `--customer-name` so re-running for the
+   same customer reproduces the same demo data. One generator instance
+   covers all tables (store list, employee names, FK pools stay
+   consistent across every CSV it writes).
 2. Seed each one as a **new** CSV-backed input table via the browser
    recipe below (this is the only way to get real rows into Snowflake
    through the UI without a warehouse-side ETL job).
@@ -41,9 +58,30 @@ fixes both. Read this before telling a user a rebrand is "done."
    SCREAMING_SNAKE column ids (new CSV columns have no friendly `name`,
    only the literal CSV header text as `id`) or through a native `join`
    source (`{"kind": "join", "primarySource": ..., "joins": [...]}`) when
-   a consumer needs a lookup across two of the new tables. PUT via
-   `/v2/workbooks/{id}/spec` as usual.
-4. **`Date()` takes exactly one string argument** — `Date("2026-09-21")`,
+   a consumer needs a lookup across two of the new tables. **Bare
+   self-references are case-insensitive but not whitespace-insensitive**
+   — `[Table/Category]` still matches a raw `CATEGORY` output, but
+   `[Table/Restaurant Id]` does *not* match `RESTAURANT_ID` (space vs.
+   underscore is a different string) and must be rewritten explicitly;
+   audit every multi-word bare ref, not just the ones that look
+   suspicious. PUT via `/v2/workbooks/{id}/spec` as usual.
+4. **Preserve the exemplar's `MAX(date column)`-relative Current/Prior
+   period pattern — never hardcode a literal date.** Every Custom-SQL
+   Feed table in the clean exemplar (`xt-risk`, `xt-audits`, `xt-tasks`,
+   ...) computes `Current Week`/`Current Month` via
+   `WITH m AS (SELECT MAX(CALC_DATE) maxd FROM <table>) ... CASE WHEN
+   date_col = (SELECT maxd FROM m) THEN 'Current ...' WHEN date_col =
+   DATEADD(.... -1, (SELECT maxd FROM m)) THEN 'Prior ...' END`. This is
+   already data-relative, not a hardcoded date — it needs zero changes
+   for a new customer as long as the generated data's own max date stays
+   reasonably recent (which `--as-of` defaulting to today guarantees).
+   **The literal-date bug below is self-inflicted, not inherited from the
+   exemplar** — it only appears if a *rewrite* of one of these SQL
+   statements drops the `MAX(...)`-relative CASE WHEN and substitutes a
+   literal date string instead. When rewiring a Feed table to new data,
+   copy the exemplar's own CASE WHEN shape verbatim (with the new table
+   name swapped in), don't write a fresh one from scratch.
+5. **`Date()` takes exactly one string argument** — `Date("2026-09-21")`,
    not `Date(2026, 9, 21)`. The multi-arg form doesn't fail at PUT time;
    it compiles into a literal error string (`'Date expected 1 argument,
    got 3'`) embedded in the SQL, which then poisons every downstream
@@ -53,7 +91,7 @@ fixes both. Read this before telling a user a rebrand is "done."
    it is pulling compiled SQL directly: `GET
    /v2/workbooks/{id}/elements/{elementId}/query` and reading the `sql`
    field for embedded `'...'` error strings.
-5. **A bare non-aggregate column referenced inside an aggregate formula
+6. **A bare non-aggregate column referenced inside an aggregate formula
    can silently return `null`.** Sigma's grouped-table compilation dedupes
    bare passthrough columns per group via `iff(equal_null(min(x), max(x)),
    max(x), null)` — if the group's rows disagree on that value (they will,
@@ -80,7 +118,7 @@ fixes both. Read this before telling a user a rebrand is "done."
      consumer with `Dependency not found`. Diff each sibling's *original*
      formula before patching, don't assume identical elementIds have
      identical semantics.
-6. **A dropped `"image": {"type": "original"}` column config** turns a
+7. **A dropped `"image": {"type": "original"}` column config** turns a
    badge-svg-URL formula into visible raw text instead of a rendered
    image. If a status/tier badge column shows a literal `https://...` URL
    after rebrand, diff that column against the original exemplar's same

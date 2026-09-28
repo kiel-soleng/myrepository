@@ -35,3 +35,7 @@ docs/twells89-review.md
 
 # Token cache (if anything writes one locally)
 .sigma-token
+
+# Python bytecode cache
+__pycache__/
+*.pyc

@@ -44,6 +44,18 @@ built and any gaps it exposes get folded back in.
   See `reference/branding.md` for the exact field-by-field token map and a
   copy-pasteable checklist.
 
+## Automation status
+
+Two of the four pieces a fully self-serve "type a customer name, get a
+demo workbook" flow needs are built and checked in:
+`scripts/generate_demo_data.py` (synthetic data) and
+`scripts/apply_branding.py` (branding substitution). **Not yet built:** a
+reusable Playwright library for the CSV-upload-via-browser-automation
+step (`reference/data-seeding.md`'s recipe is still manual/ad hoc per
+session), and a single orchestrating entry point that chains
+generate → brand → upload → publish → verify. Until those land, steps
+3–7 below still need a human running each piece by hand.
+
 ## Workflow for a new customer instance
 
 1. Read `reference/structure.md` and `reference/kpis.md` — confirm the
@@ -58,7 +70,11 @@ built and any gaps it exposes get folded back in.
 3. Ask the user (don't guess) for: company name, logo URL, primary brand
    color (hex), font family (if their Sigma org has one licensed), and the
    customer's own compliance/SOP reference URL. Do not carry over Chipotle's
-   `chipotle.com` URLs into another customer's workbook.
+   `chipotle.com` URLs into another customer's workbook. Once you have
+   these, `scripts/apply_branding.py --customer-name ... --brand-hex ...
+   [--logo-url ...] [--compliance-url ...]` runs the mechanical part of
+   steps 4–5 below for the main workbook spec — see "Automated pass" at
+   the top of `reference/branding.md`.
 4. Start from `examples/chipotle-exemplar-spec.json` (the workbook) and
    `examples/chipotle-risk-profile-report-spec.json` (the companion
    report) as the structural base for each. Remap data-model field
@@ -79,16 +95,28 @@ built and any gaps it exposes get folded back in.
    replace the old customer's rows in warehouse-backed tables, and Sigma
    has no REST write path for input-table rows at all, so every input
    table with demo data in the exemplar comes through harvest as
-   structurally correct but empty. Read `reference/data-seeding.md` in
-   full before telling the user the rebuild is done — it has the
-   synthetic-data + browser-automation recipe for both problems, plus
-   several non-obvious formula/platform gotchas (a `Date()` syntax trap
-   that silently poisons downstream formulas, an aggregate-over-sibling
-   `null`-KPI trap, and a destructive `Ctrl+A`-in-a-grid trap with its
-   recovery path) that cost real debugging time to discover.
+   structurally correct but empty. `scripts/generate_demo_data.py
+   --customer-name "..." --out-dir ...` generates the CSVs (deterministic
+   per customer name, dates relative to today — no hand-written generator
+   needed anymore). Read `reference/data-seeding.md` in full before
+   telling the user the rebuild is done regardless — the CSVs still need
+   uploading via the browser-automation recipe (no reusable Playwright
+   library exists yet for that step; see the skill's "Stage 2" open item)
+   and the doc's non-obvious formula/platform gotchas (a `Date()` syntax
+   trap, an aggregate-over-sibling `null`-KPI trap, a 3-clone colliding-id
+   trap, and a destructive `Ctrl+A`-in-a-grid trap with its recovery path)
+   still apply when wiring the new tables in.
 
 ## Files
 
+- `scripts/generate_demo_data.py` (+ `scripts/data_pools.py`) — parameterized
+  synthetic-data generator: `--customer-name` in, one CSV per table this
+  pattern needs out. Deterministic per customer name; dates relative to
+  `--as-of` (default today), not a literal anchor.
+- `scripts/apply_branding.py` — executable first pass over
+  `reference/branding.md`'s checklist (theme color, confirmed-clean brand
+  hex, logo/texture URLs, the known company-name locations); prints a
+  manual-review list for everything that needs individual judgment.
 - `reference/structure.md` — canonical pages, overlays, AI agents, gotchas.
 - `reference/kpis.md` — the 8 KPI formulas + current/prior pairing pattern.
 - `reference/branding.md` — the whitelabel token map (colors, logo, company

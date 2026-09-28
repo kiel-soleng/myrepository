@@ -1,5 +1,28 @@
 # Branding / whitelabel token map
 
+## Automated pass
+
+`scripts/apply_branding.py` runs the safe, mechanical substitutions this
+file documents below (theme highlight color, the confirmed-clean
+`#a81712` brand-red hex, logo/texture URLs, the 8 known company-name
+text/formula locations, agent persona lines) and prints a "MANUAL REVIEW
+STILL NEEDED" list for everything this file says needs individual
+judgment (semantic risk/status colors, the compliance link without a
+real URL, font licensing, the companion Risk Profile Report's own
+separate pass). Run it first; work the manual-review list it prints
+against the checklist at the bottom of this file, don't skip straight to
+the checklist.
+
+```
+python3 scripts/apply_branding.py \
+  --input examples/chipotle-exemplar-spec.json \
+  --output /path/to/branded-spec.json \
+  --customer-name "Big Sky Grill" \
+  --brand-hex "#1f6f4a" \
+  --logo-url https://.../logo.svg \
+  --compliance-url https://.../food-safety
+```
+
 Everything in this file is what changes per customer. `structure.md` and
 `kpis.md` are what stays constant. When adapting the exemplar
 (`examples/chipotle-exemplar-spec.json`) for a new customer, work through
