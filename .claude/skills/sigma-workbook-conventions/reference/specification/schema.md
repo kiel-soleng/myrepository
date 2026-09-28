@@ -41,19 +41,45 @@ this directory.
 
 ## Top-level object
 
+**Correction (2026-09-28, confirmed against the live API for both POST
+and PUT):** the request body is NOT this flat shape — `schemaVersion`,
+`pages`, and `layout` all live inside a nested `document` object, and
+`pages[]` holds only page metadata (`id`, `name`); elements live in a
+single top-level `elements[]` inside `document`, not nested under each
+page. A body shaped like the flat example below is rejected with a long
+`Expecting { schemaVersion: 1 } at 0.document.0.0.0.0 but instead got:
+undefined, ...` type error naming `document`-nested fields as missing —
+that error is the signal you've hit this exact mismatch.
+
 ```json
 {
   "name": "My Workbook",
   "folderId": "<folder-uuid>",
   "description": "Optional description",
-  "schemaVersion": 1,
-  "pages": [...],
-  "layout": "<?xml version=\"1.0\" encoding=\"utf-8\"?>...</Page>..."
+  "document": {
+    "schemaVersion": 1,
+    "kind": "workbook",
+    "pages": [
+      {"id": "page-overview", "name": "Overview"}
+    ],
+    "elements": [...],
+    "layout": "<?xml version=\"1.0\" encoding=\"utf-8\"?>...</Page>..."
+  }
 }
 ```
 
-**Required:** `name`, `folderId`, `schemaVersion`, `pages`.
-**Optional:** `description`, `layout`.
+**Required:** `name`, `folderId`, `document.schemaVersion`, `document.pages`,
+`document.elements`.
+**Optional:** `description`, `document.layout`.
+
+`PUT /v2/workbooks/{id}/spec` takes just `{"document": {...}}` — no
+`name`/`folderId`/`description` (those are set at CREATE time and edited
+via the workbook metadata endpoint, not the spec endpoint).
+
+The rest of this file's per-element and per-page examples below predate
+this correction and may still show the old flat/nested-elements shape in
+places — treat `elements` as a top-level `document` key, not something
+nested under each `pages[]` entry, wherever you see a discrepancy.
 
 See `reference/workflows/crud.md` → "schemaVersion — don't hardcode"
 for the rule on `schemaVersion`. Existing exemplars use `1`; future

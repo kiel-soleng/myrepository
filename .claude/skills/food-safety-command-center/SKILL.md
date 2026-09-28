@@ -46,15 +46,28 @@ built and any gaps it exposes get folded back in.
 
 ## Automation status
 
-Two of the four pieces a fully self-serve "type a customer name, get a
-demo workbook" flow needs are built and checked in:
-`scripts/generate_demo_data.py` (synthetic data) and
-`scripts/apply_branding.py` (branding substitution). **Not yet built:** a
-reusable Playwright library for the CSV-upload-via-browser-automation
-step (`reference/data-seeding.md`'s recipe is still manual/ad hoc per
-session), and a single orchestrating entry point that chains
-generate → brand → upload → publish → verify. Until those land, steps
-3–7 below still need a human running each piece by hand.
+Three of the four pieces a fully self-serve "type a customer name, get a
+demo workbook" flow needs are built, checked in, and confirmed working
+against a real Sigma login (2026-09-28):
+`scripts/generate_demo_data.py` (synthetic data), `scripts/apply_branding.py`
+(branding substitution), and the Playwright pair
+`scripts/sigma_session.py` (login + MFA, manual-relay mode, saves a
+reusable `storage_state`) + `scripts/input_table_upload.py` (the
+scroll-to-locate → clipboard-paste → SUMMARY-footer row-count verify →
+Publish recipe from `reference/data-seeding.md`, tested end-to-end
+against a disposable scratch workbook).
+
+**Not yet built:** a single orchestrating entry point that chains
+generate → brand → upload → rewire data sources → publish → verify for
+*this* workbook specifically. The data-source rewiring step alone touches
+20 elements across 10 tables with real gotchas (3 elements share
+colliding column/grouping ids and must be patched together; the
+`MAX(date)`-relative SQL pattern must be preserved, not replaced with a
+literal date — see `reference/data-seeding.md` and
+`sigma-workbook-conventions/reference/history.md` → 2026-09-28) — building
+that orchestrator is its own scoped task, not a small wrapper around the
+four pieces above. Until it lands, that step still needs a human running
+it by hand per `reference/data-seeding.md`'s "Fix 1" recipe.
 
 ## Workflow for a new customer instance
 
@@ -98,14 +111,16 @@ generate → brand → upload → publish → verify. Until those land, steps
    structurally correct but empty. `scripts/generate_demo_data.py
    --customer-name "..." --out-dir ...` generates the CSVs (deterministic
    per customer name, dates relative to today — no hand-written generator
-   needed anymore). Read `reference/data-seeding.md` in full before
-   telling the user the rebuild is done regardless — the CSVs still need
-   uploading via the browser-automation recipe (no reusable Playwright
-   library exists yet for that step; see the skill's "Stage 2" open item)
-   and the doc's non-obvious formula/platform gotchas (a `Date()` syntax
-   trap, an aggregate-over-sibling `null`-KPI trap, a 3-clone colliding-id
-   trap, and a destructive `Ctrl+A`-in-a-grid trap with its recovery path)
-   still apply when wiring the new tables in.
+   needed anymore). Upload each CSV with `scripts/sigma_session.py`
+   (login) + `scripts/input_table_upload.py` (paste + verify + publish) —
+   see "Automation status" above. Read `reference/data-seeding.md` in
+   full before telling the user the rebuild is done regardless — the
+   doc's non-obvious formula/platform gotchas (a `Date()` syntax trap, an
+   aggregate-over-sibling `null`-KPI trap, a 3-clone colliding-id trap,
+   and a destructive `Ctrl+A`-in-a-grid trap with its recovery path)
+   still apply when wiring the new tables in, and repointing each Feed
+   table's source to the newly-uploaded data is still a manual step (no
+   orchestrator for it yet).
 
 ## Files
 
@@ -117,6 +132,12 @@ generate → brand → upload → publish → verify. Until those land, steps
   `reference/branding.md`'s checklist (theme color, confirmed-clean brand
   hex, logo/texture URLs, the known company-name locations); prints a
   manual-review list for everything that needs individual judgment.
+- `scripts/sigma_session.py` — Playwright login helper (email/password +
+  manual-relay MFA), saves a reusable `storage_state` for other scripts.
+- `scripts/input_table_upload.py` — Playwright CSV-upload helper: locate
+  a table by title, clipboard-paste, verify row count via the SUMMARY
+  footer, Publish. Never issues Ctrl+A (see the incident in
+  `sigma-workbook-conventions/reference/history.md`).
 - `reference/structure.md` — canonical pages, overlays, AI agents, gotchas.
 - `reference/kpis.md` — the 8 KPI formulas + current/prior pairing pattern.
 - `reference/branding.md` — the whitelabel token map (colors, logo, company

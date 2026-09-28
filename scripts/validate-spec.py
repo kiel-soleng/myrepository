@@ -84,24 +84,30 @@ def _parse_layout(layout: str) -> ET.Element | None:
         return None
 
 
+# Real layout XML (both GET-spec output and what PUT/POST actually
+# accept) uses <Element>/<Container> tags. "LayoutElement"/"GridContainer"
+# never appear in a real spec -- checked against the live API 2026-09-28.
+_PLACED_TAGS = ("Element", "Container", "TabbedContainer", "Tab", "Panel", "LayoutElement", "GridContainer")
+_CONTAINER_TAGS = ("Container", "GridContainer")
+
+
 def issues_elements_placed(spec: dict, root: ET.Element | None) -> list[tuple[str, str]]:
     if root is None:
         return [("fail", "no top-level `layout` field — workbook will have an auto-generated layout")]
     placed_ids = {
         el.get("elementId")
         for el in root.iter()
-        if el.tag in ("LayoutElement", "GridContainer")
+        if el.tag in _PLACED_TAGS
     }
     issues = []
-    for pi, p in enumerate(spec.get("pages", [])):
-        for el in p.get("elements", []):
-            eid = el.get("id")
-            if eid and eid not in placed_ids:
-                issues.append((
-                    "fail",
-                    f"pages[{pi}].elements ({eid}, kind={el.get('kind')}): "
-                    "not placed in the layout XML — will render at the page bottom or not at all."
-                ))
+    for pi, el in _all_elements(spec):
+        eid = el.get("id")
+        if eid and eid not in placed_ids:
+            issues.append((
+                "fail",
+                f"elements ({eid}, kind={el.get('kind')}): "
+                "not placed in the layout XML — will render at the page bottom or not at all."
+            ))
     return issues
 
 
@@ -110,24 +116,29 @@ def issues_containers_have_children(spec: dict, root: ET.Element | None) -> list
         return []
     container_ids = [
         el.get("id")
-        for p in spec.get("pages", [])
-        for el in p.get("elements", [])
+        for pi, el in _all_elements(spec)
         if el.get("kind") == "container"
     ]
     issues = []
     for cid in container_ids:
-        gc = next((el for el in root.iter("GridContainer") if el.get("elementId") == cid), None)
+        gc = next(
+            (el for tag in _CONTAINER_TAGS for el in root.iter(tag) if el.get("elementId") == cid),
+            None,
+        )
         if gc is None:
             issues.append((
                 "fail",
-                f"container element `{cid}`: no matching <GridContainer> in layout XML."
+                f"container element `{cid}`: no matching <Container>/<GridContainer> in layout XML."
             ))
-        elif len(list(gc)) == 0:
+        elif len(list(gc)) == 0 and gc.get("type") != "stack":
             issues.append((
                 "fail",
-                f"container element `{cid}`: <GridContainer> has no nested children. "
-                "Children must be nested INSIDE the <GridContainer>, not flat siblings."
+                f"container element `{cid}`: <Container> has no nested children. "
+                "Children must be nested INSIDE the container, not flat siblings."
             ))
+        # type="stack" containers are a known platform limitation: GET-spec
+        # never serializes their children (see scope-and-edge-cases.md) --
+        # an empty stub here is expected, not a spec authoring mistake.
     return issues
 
 
@@ -185,7 +196,21 @@ def issues_control_id_unique(spec: dict) -> list[tuple[str, str]]:
 
 
 def _all_elements(spec: dict) -> list[tuple[int, dict]]:
-    """Yield (page_index, element) for every element in every page."""
+    """Yield (page_index, element) for every element in the spec.
+
+    Two shapes exist in the wild: a freshly-hand-authored POST body can
+    nest elements under `pages[].elements`, but the shape returned by
+    GET /v2/workbooks/{id}/spec (and therefore fed back into PUT on every
+    edit-an-existing-workbook workflow) stores ALL elements in a flat
+    top-level `elements[]`, with `pages[]` holding only page metadata.
+    Checking only the nested shape means every check built on this
+    function silently finds zero elements -- and therefore silently
+    "passes" -- against every real GET-spec-shaped document. Check the
+    flat shape first since it's the common case for this repo's PUT-an-
+    existing-workbook workflow.
+    """
+    if spec.get("elements"):
+        return [(0, el) for el in spec["elements"]]
     out = []
     for pi, p in enumerate(spec.get("pages", [])):
         for el in p.get("elements", []):

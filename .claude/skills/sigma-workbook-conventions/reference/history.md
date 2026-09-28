@@ -509,3 +509,76 @@ Rules going forward:
   `TASK_COMPLETIONS_NEW` input-table, both via `source: {"kind": "table",
   "elementId": "..."}` rather than Custom SQL) — remove the "left
   unfixed" note from the 2026-09-25 entry above; it no longer applies.
+
+## 2026-09-28 (later same day) — `validate-spec.py`'s placement checks were dead code against every real GET-spec document
+
+Building the Food Safety Command Center's Stage 2 Playwright library
+required a scratch workbook to test against, which surfaced two
+independent, previously-unnoticed bugs.
+
+1. **POST also requires the `{"document": {...}}` wrapper** — the
+   top-level shape `schema.md` documents (`{name, folderId,
+   schemaVersion, pages, layout}`, no wrapper) is rejected the same way
+   PUT rejects a bare, unwrapped `document` body (confirmed earlier this
+   same day fixing the Danger Zone KPI — that fix used
+   `sigma_curl -X PUT ... -d '{"document": {...}}'` after a bare-document
+   PUT was rejected). schema.md has not been corrected for this yet — the
+   real
+   body is `{"name": ..., "folderId": ..., "document": {"schemaVersion":
+   1, "kind": "workbook", "pages": [{"id", "name"}], "elements": [...],
+   "layout": "..."}}`. `pages[]` at POST time holds only page metadata —
+   elements live in a single top-level `elements[]`, not nested under
+   each page. An `input-table` element with `source.kind: "empty"` also
+   needs an explicit `"inputMode": "explore"` or POST rejects it with the
+   same misleading `Invalid kind: "input-table"` this file already
+   documents for a different root cause (2026-05 era entries) — a second,
+   different bug produces the identical error text.
+2. **`scripts/validate-spec.py`'s three placement-dependent checks
+   (`elements-placed-in-layout`, `containers-have-children`, and every
+   check built on `_all_elements()`) have been silently no-op'ing against
+   every spec this project actually validates.** The checks were written
+   for the nested `pages[].elements` shape POST accepts, but every
+   real-world call site in this repo feeds them a GET-spec-shaped
+   document — flat top-level `elements[]`, `pages[]` holding only
+   metadata — to validate before a PUT. Looping `pages[].elements` over
+   that shape finds zero elements, so `_all_elements()` returns `[]` and
+   every check built on it "passes" by finding nothing to check, not by
+   confirming correctness. Compounding it, the placement check itself
+   searched for layout tags named `LayoutElement`/`GridContainer`, which
+   never appear in a real spec at all (confirmed against a live GET-spec
+   pull: the actual tags are `Element`/`Container`/`TabbedContainer`/
+   `Tab`) — so even fed the nested shape, it would still find nothing
+   placed. **Practical impact: "all N checks passed" from this script has
+   never meant what it appeared to mean for any GET→edit→PUT workflow in
+   this repo's own history** (which is most of this skill's actual usage
+   — every Carl's Jr session included). Fixed: `_all_elements()` now
+   checks the flat top-level `elements[]` shape first (falling back to
+   nested `pages[].elements` for a freshly hand-authored POST body); the
+   placement/container checks now recognize the real tag names. A
+   `type="stack"` container's empty `<Container>` stub is deliberately
+   *not* flagged (see the `type="stack"` entry in
+   `scope-and-edge-cases.md` — GET-spec never emits its children; that's
+   a known platform round-trip limitation, not a spec-authoring mistake).
+   **Re-running the fixed validator against the untouched Chipotle
+   harvest reproduces exactly that known stack-container limitation** (85
+   failures, every one an element living inside a `type="stack"`
+   container) — confirming the fix works, not that the harvest is broken.
+   Running it against the live Carl's Jr workbook surfaced two genuine,
+   previously-invisible issues worth a follow-up pass: three empty
+   `type="grid"` containers with no children (likely leftover from
+   earlier experiments) and two real `controlId`/column-name collisions
+   (`State` collides with a column on `xt-risk`/`lSibaPm496`; `Status`
+   collides with a column on `EUwCf3fGSl`) — the exact collision class
+   this file's own `controlid-collision` check exists to catch, which had
+   never actually run against this workbook until the fix above.
+
+Rules going forward:
+
+- Anyone relying on a past "`validate-spec.py` — all N checks passed" log
+  line from before this date should treat it as unverified for placement/
+  container/controlid-collision/passthrough-coverage/etc. — the checks
+  literally did not run. Re-validate anything load-bearing with the fixed
+  script if it matters.
+- `food-safety-command-center` — the three empty containers and two
+  controlId collisions on the live Carl's Jr workbook are flagged, not
+  yet fixed; pick them up in a follow-up pass.
