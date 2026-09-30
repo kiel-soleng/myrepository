@@ -318,7 +318,13 @@ class DemoDataGenerator:
                 item_rows.append({
                     "ACTION_ID": item_id,
                     "RESTAURANT_ID": rid,
-                    "CREATED_AT": datetime.combine(created, datetime.min.time()).isoformat(),
+                    # Named OPENED_AT, not CREATED_AT -- the latter collides
+                    # with Sigma input-tables' own reserved system column of
+                    # that name, which silently renames the incoming column
+                    # to an internal generated alias (e.g. "FIRST_13") on
+                    # upload instead of erroring, a trap for whatever SQL
+                    # later reads it back by name.
+                    "OPENED_AT": datetime.combine(created, datetime.min.time()).isoformat(),
                     "ISSUE_SUMMARY": self.rng.choice(ACTION_ITEM_ISSUES),
                     "ASSIGNED_TO": assignee.get("NAME", "Store Manager"),
                     "DUE_DATE": due.isoformat(),
@@ -341,7 +347,7 @@ class DemoDataGenerator:
                     })
                     lid += 1
                 aid += 1
-        item_fields = ["ACTION_ID", "RESTAURANT_ID", "CREATED_AT", "ISSUE_SUMMARY", "ASSIGNED_TO", "DUE_DATE", "STATUS", "PRIORITY"]
+        item_fields = ["ACTION_ID", "RESTAURANT_ID", "OPENED_AT", "ISSUE_SUMMARY", "ASSIGNED_TO", "DUE_DATE", "STATUS", "PRIORITY"]
         log_fields = ["LOG_ID", "ACTION_ID", "COMPLETED_BY", "COMPLETED_AT", "RESOLUTION_NOTES", "ACKNOWLEDGMENT_FLAG", "EVIDENCE_URL"]
         p1 = self._write_csv("ACTION_ITEMS.csv", item_fields, item_rows)
         p2 = self._write_csv("ACTION_LOG.csv", log_fields, log_rows)

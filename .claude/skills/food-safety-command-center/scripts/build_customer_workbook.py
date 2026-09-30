@@ -81,7 +81,10 @@ TABLE_SCHEMAS = {
     "ACTION_ITEMS": [
         ("ACTION_ID", "text", "Action Id"),
         ("RESTAURANT_ID", "text", "Restaurant Id"),
-        ("CREATED_AT", "datetime", "Created At"),
+        # id is OPENED_AT, not CREATED_AT -- the latter collides with
+        # Sigma input-tables' own reserved system column of that name
+        # (see generate_demo_data.py's matching comment).
+        ("OPENED_AT", "datetime", "Created At"),
         ("ISSUE_SUMMARY", "text", "Issue Summary"),
         ("ASSIGNED_TO", "text", "Assigned To"),
         ("DUE_DATE", "datetime", "Due Date"),
@@ -638,8 +641,8 @@ def _fix_hidden_table_self_ref_names(doc):
         for e in doc.get("elements", []):
             if e["id"] == eid and e.get("name") == {"visibility": "hidden"}:
                 e["name"] = text
-                log(f"set visible name='{text}' on table '{eid}' for CREATE "
-                    f"(will be re-hidden by a follow-up PUT; see phase_create)")
+                log(f"set visible name='{text}' on table '{eid}' (stays visible "
+                    f"permanently -- re-hiding isn't reproducible via PUT, see docstring above)")
 
 
 def _fix_join_base_grouping(doc):
@@ -1129,9 +1132,12 @@ def _discover_sigds_tables(workbook_id, els):
     return out
 
 
-def _dedup_cte(alias, sigds_table):
+def _dedup_cte(sigds_table):
+    """Returns just the parenthesized CTE body -- callers prefix their
+    own `<name> AS ` (e.g. "restaurants AS " + this), since the body
+    doesn't need its own alias/name baked in."""
     return (
-        f"{alias} AS (\n"
+        f"(\n"
         f"  SELECT * FROM (\n"
         f"    SELECT *, ROW_NUMBER() OVER (PARTITION BY \"ID\" ORDER BY ROW_VERSION DESC) rn\n"
         f"    FROM SE_DEMO_DB.PAPERCRANE_WRITE.\"{sigds_table}\"\n"
@@ -1147,8 +1153,8 @@ def _rewire_sql_elements(byid, sigds):
     tasks_completions = sigds["TASK_COMPLETIONS"]
 
     xt_risk_sql = (
-        f"WITH restaurants AS {_dedup_cte('_x', r)},\n"
-        f"risk AS {_dedup_cte('_x', ri)},\n"
+        f"WITH restaurants AS {_dedup_cte(r)},\n"
+        f"risk AS {_dedup_cte(ri)},\n"
         f"m AS (SELECT MAX(CALC_DATE) maxd FROM risk)\n"
         f"SELECT s.RESTAURANT_ID, s.CALC_DATE, s.RISK_SCORE, s.RISK_TIER, s.DRIVER_SUMMARY,\n"
         f"  r.REGION, UPPER(TRIM(RIGHT(TRIM(r.ADDRESS),2))) AS STATE, r.NAME AS RESTAURANT,\n"
@@ -1161,8 +1167,8 @@ def _rewire_sql_elements(byid, sigds):
         byid[eid]["source"]["connectionId"] = CONNECTION_ID
 
     xt_audits_sql = (
-        f"WITH restaurants AS {_dedup_cte('_x', r)},\n"
-        f"audits AS {_dedup_cte('_x', audits)},\n"
+        f"WITH restaurants AS {_dedup_cte(r)},\n"
+        f"audits AS {_dedup_cte(audits)},\n"
         f"m AS (SELECT MAX(DATE_TRUNC('month',AUDIT_DATE)) maxm FROM audits)\n"
         f"SELECT a.AUDIT_ID, a.AUDIT_DATE, DATE_TRUNC('month',a.AUDIT_DATE) AS AUDIT_MONTH,\n"
         f"  a.PASS_FAIL, a.CATEGORY, a.SEVERITY, a.SCORE, r.REGION,\n"
@@ -1174,8 +1180,8 @@ def _rewire_sql_elements(byid, sigds):
     byid["xt-audits"]["source"]["statement"] = xt_audits_sql
 
     xt_tasks_sql = (
-        f"WITH restaurants AS {_dedup_cte('_x', r)},\n"
-        f"completions AS {_dedup_cte('_x', tasks_completions)},\n"
+        f"WITH restaurants AS {_dedup_cte(r)},\n"
+        f"completions AS {_dedup_cte(tasks_completions)},\n"
         f"m AS (SELECT MAX(DATE_TRUNC('month',COMPLETED_AT)) maxm FROM completions)\n"
         f"SELECT t.COMPLETION_ID, t.STATUS, DATE_TRUNC('month',t.COMPLETED_AT) AS COMP_MONTH, r.REGION,\n"
         f"  CASE WHEN DATE_TRUNC('month',t.COMPLETED_AT)=(SELECT maxm FROM m) THEN 'Current Month'\n"
@@ -1185,20 +1191,27 @@ def _rewire_sql_elements(byid, sigds):
     byid["xt-tasks"]["source"]["statement"] = xt_tasks_sql
 
     action_items_live_sql = (
-        f"WITH restaurants AS {_dedup_cte('_x', r)},\n"
-        f"employees AS {_dedup_cte('_x', e)},\n"
-        f"action_items AS {_dedup_cte('_x', a)},\n"
-        f"action_log AS {_dedup_cte('_x', al)},\n"
-        f"m AS (SELECT MAX(CREATED_AT) today FROM action_items),\n"
+        f"WITH restaurants AS {_dedup_cte(r)},\n"
+        f"employees AS {_dedup_cte(e)},\n"
+        f"action_items AS {_dedup_cte(a)},\n"
+        f"action_log AS {_dedup_cte(al)},\n"
+        f"risk AS {_dedup_cte(ri)},\n"
+        # "today" anchors to RISK_SCORES' own MAX(date), matching the
+        # exemplar's original pattern and every other rewritten element
+        # here -- not to action_items' own OPENED_AT, which would make
+        # the overdue/days-open math wobble with whatever a particular
+        # item's age happens to be instead of a single stable reference
+        # date shared network-wide.
+        f"m AS (SELECT MAX(CALC_DATE) today FROM risk),\n"
         f"gm AS (SELECT RESTAURANT_ID, MAX(NAME) AS GM FROM employees WHERE ROLE='General Manager' GROUP BY RESTAURANT_ID)\n"
         f"SELECT a.ACTION_ID, a.RESTAURANT_ID, r.NAME AS RESTAURANT, r.REGION,\n"
         f"  a.ISSUE_SUMMARY, a.PRIORITY, a.STATUS, COALESCE(a.ASSIGNED_TO, g.GM, 'Unassigned') AS ASSIGNED_TO,\n"
-        f"  a.CREATED_AT, a.DUE_DATE,\n"
+        f"  a.OPENED_AT AS CREATED_AT, a.DUE_DATE,\n"
         f"  lg.COMPLETED_BY, lg.COMPLETED_AT, lg.RESOLUTION_NOTES, lg.ACKNOWLEDGMENT_FLAG,\n"
         f"  m.today AS AS_OF,\n"
         f"  CASE WHEN a.STATUS <> 'Complete' AND a.DUE_DATE < m.today THEN TRUE ELSE FALSE END AS IS_OVERDUE,\n"
-        f"  DATEDIFF('day', a.CREATED_AT, m.today) AS DAYS_OPEN,\n"
-        f"  DATEDIFF('day', a.CREATED_AT, lg.COMPLETED_AT) AS DAYS_TO_RESOLVE\n"
+        f"  DATEDIFF('day', a.OPENED_AT, m.today) AS DAYS_OPEN,\n"
+        f"  DATEDIFF('day', a.OPENED_AT, lg.COMPLETED_AT) AS DAYS_TO_RESOLVE\n"
         f"FROM action_items a CROSS JOIN m\n"
         f"LEFT JOIN restaurants r ON a.RESTAURANT_ID = r.RESTAURANT_ID\n"
         f"LEFT JOIN action_log lg ON a.ACTION_ID = lg.ACTION_ID\n"
