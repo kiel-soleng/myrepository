@@ -1062,7 +1062,7 @@ def phase_upload(args, state):
         page = context.new_page()
         page.goto(state["workbook_edit_url"], timeout=30000)
         page.wait_for_timeout(15000)  # large workbook -- initial 6s wasn't enough
-        itu.dismiss_out_of_date_dialog_if_present(page)
+        itu.dismiss_out_of_date_dialog_if_present(page, timeout_ms=8000)
 
         current_page = None
 
@@ -1350,8 +1350,12 @@ def phase_publish(args, state):
         context = browser.new_context(storage_state=storage_state_path, viewport={"width": 1600, "height": 1000})
         page = context.new_page()
         page.goto(state["workbook_edit_url"], timeout=30000)
-        page.wait_for_timeout(6000)
-        itu.dismiss_out_of_date_dialog_if_present(page)
+        page.wait_for_timeout(15000)  # large workbook -- the "out of date"
+        # dialog may not have rendered yet on a shorter wait, causing the
+        # dismiss step below to miss it; publish then races a dialog that
+        # appears mid-click, which can intercept the Publish click and
+        # (worse) risks publishing a stale pre-rewire client-side draft.
+        itu.dismiss_out_of_date_dialog_if_present(page, timeout_ms=8000)
         itu.publish(page)
         browser.close()
     log(f"published: {state['workbook_url']}")
