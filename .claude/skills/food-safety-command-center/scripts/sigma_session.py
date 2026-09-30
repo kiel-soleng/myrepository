@@ -29,7 +29,12 @@ import time
 from playwright.sync_api import sync_playwright
 
 CHROMIUM_PATH = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
-PROXY_SERVER = os.environ.get("SIGMA_BROWSER_PROXY", "http://127.0.0.1:33303")
+# The agent proxy's port is dynamic per session (see /root/.ccr/README.md) --
+# read it from the environment the harness already sets rather than a
+# hardcoded port, which goes stale the moment the proxy restarts on a
+# different port.
+PROXY_SERVER = os.environ.get("SIGMA_BROWSER_PROXY") or os.environ.get("HTTPS_PROXY") \
+    or os.environ.get("HTTP_PROXY") or "http://127.0.0.1:33303"
 DEFAULT_LOGIN_URL_TEMPLATE = "https://app.sigmacomputing.com/{org}/login"
 
 

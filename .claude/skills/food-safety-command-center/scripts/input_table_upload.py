@@ -23,6 +23,18 @@ import csv
 import time
 
 
+def switch_to_page(page, page_name):
+    """Click a page tab in the bottom tab bar by its exact visible name.
+    Hidden pages (e.g. "Data Model") still render a tab here in the
+    editor -- `visibility: "hidden"` only affects the published viewer's
+    tab bar, not the editor's. Text elsewhere on the page (KPI labels,
+    AI narrative, etc.) could coincidentally match a page name, so this
+    is only safe to call with page names, not table titles -- callers
+    must know which is which."""
+    page.get_by_text(page_name, exact=True).first.click()
+    page.wait_for_timeout(2000)
+
+
 def scroll_until_visible(page, title, max_steps=40, step_px=1200):
     """Long data pages virtualize far-off content out of the DOM -- blind
     pixel-count scrolling misses a table that hasn't rendered yet. Scroll
