@@ -115,9 +115,19 @@ def dismiss_out_of_date_dialog_if_present(page, timeout_ms=3000):
     the spec since this browser session started. Safe to accept --
     syncing does not discard already-committed input-table rows, which
     live in the backing table independent of the workbook's draft/
-    published spec state."""
+    published spec state.
+
+    `exact=True` deliberately -- a fuzzy substring match risks clicking
+    an unrelated control if some other panel (version history, etc.) is
+    also on screen with overlapping text. A live test session saw a
+    "Successfully restored previous version" toast immediately after
+    this call, and the input-tables' pasted rows were gone afterward;
+    never fully root-caused (correlation, not proven causation -- the
+    exact button clicked wasn't captured), but exact matching removes
+    one plausible way for this call to hit the wrong element, and costs
+    nothing if the dialog's button text is stable."""
     try:
-        btn = page.get_by_text("Update to latest version", exact=False)
+        btn = page.get_by_text("Update to latest version", exact=True)
         btn.wait_for(timeout=timeout_ms)
         btn.click()
         page.wait_for_timeout(2000)
