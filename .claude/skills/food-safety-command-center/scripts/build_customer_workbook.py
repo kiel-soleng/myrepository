@@ -468,6 +468,16 @@ def _fix_dangling_agent_datasources(doc):
 
 _PASSTHROUGH_FORMULA_RE = re.compile(r'^\[[^/\[\]]+/([^\[\]]+)\]$')
 
+_EXTRA_LINKED_TABLE_COLUMN_NAMES = {
+    # 'EUwCf3fGSl' (the Re-Open Modal's linked input-table) has a sibling
+    # column to rNxOC8LBkb's (the Acknowledgement Modal's) "Is Overdue" --
+    # but this one wraps the passthrough in `Text(...)`, so it doesn't
+    # match _PASSTHROUGH_FORMULA_RE's exact `[Table/Col]` shape and never
+    # got auto-named. A same-element sibling column ("Overdue") still
+    # references it bare as `[Is Overdue]`, which fails without a name.
+    "EUwCf3fGSl": {"q-f_EPNva8": "Is Overdue"},
+}
+
 
 def _fix_linked_table_passthrough_names(doc):
     """`kind: "linked"` input-tables (the modal-backing tables cloned from
@@ -487,8 +497,14 @@ def _fix_linked_table_passthrough_names(doc):
         if (e.get("source") or {}).get("kind") != "linked":
             continue
         existing_names = {c.get("name") for c in e.get("columns", []) if c.get("name")}
+        extra = _EXTRA_LINKED_TABLE_COLUMN_NAMES.get(e["id"], {})
         for c in e.get("columns", []):
             if c.get("name"):
+                continue
+            if c["id"] in extra and extra[c["id"]] not in existing_names:
+                c["name"] = extra[c["id"]]
+                existing_names.add(extra[c["id"]])
+                count += 1
                 continue
             m = _PASSTHROUGH_FORMULA_RE.match(c.get("formula") or "")
             if m and m.group(1) not in existing_names:
