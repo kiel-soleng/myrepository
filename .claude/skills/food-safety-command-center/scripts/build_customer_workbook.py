@@ -1079,6 +1079,48 @@ def phase_upload(args, state):
 # ---------------------------------------------------------------------------
 # Phase: rewire
 
+def _repoint_warehouse_table_refs(doc):
+    """DIRECT_ELEMENTS only covers the 12 elements whose *own* top-level
+    `source` is `kind:"table"`-shaped. A sweep of every remaining element
+    found 5 more warehouse-table references DIRECT_ELEMENTS never
+    touches, in two different shapes: `kind:"join"` sources (4 elements:
+    dr-task-src, dr-store, KPbGUYrwFF, ac-items -- each joining 2-3
+    warehouse tables under `joins[].left/right` + `primarySource`) and a
+    control's list-filter source (`E7tKc63qdS`, shape `{kind:"source",
+    source:{kind:"warehouse-table",...}, columnId}`). Left unrepointed,
+    these would keep showing the original Chipotle exemplar's data
+    instead of the new customer's. Recursively replace any
+    `{"kind":"warehouse-table",...,"path":[...,TABLE_NAME]}` dict,
+    wherever nested, with `{"kind":"table","elementId":<new stub>}` --
+    genuinely nested resolution: this needs the MUTATED input-table
+    equivalent, but on this workbook type only a "table" source carries
+    resolvable identity, so `{kind:"table", elementId}` is the right
+    generic replacement regardless of where in the tree it's found."""
+    count = 0
+
+    def scrub(obj):
+        nonlocal count
+        if isinstance(obj, dict):
+            if obj.get("kind") == "warehouse-table" and obj.get("path"):
+                table_name = obj["path"][-1]
+                if table_name in NEW_ELEMENT_ID:
+                    obj.clear()
+                    obj["kind"] = "table"
+                    obj["elementId"] = NEW_ELEMENT_ID[table_name]
+                    count += 1
+                    return
+            for v in list(obj.values()):
+                scrub(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                scrub(v)
+
+    scrub(doc.get("elements", []))
+    if count:
+        log(f"repointed {count} additional warehouse-table reference(s) outside DIRECT_ELEMENTS "
+            f"(join sources, control list-filters) to the new customer data")
+
+
 def phase_rewire(args, state):
     workbook_id = state["workbook_id"]
     live = _sigma_curl([f"/v2/workbooks/{workbook_id}/spec"])
@@ -1094,9 +1136,54 @@ def phase_rewire(args, state):
     for eid, table_name in DIRECT_ELEMENTS.items():
         e = byid[eid]
         e["source"] = {"kind": "table", "elementId": NEW_ELEMENT_ID[table_name]}
-        e["name"] = table_name
+        custom_name = e.get("name")
+        if isinstance(custom_name, str) and custom_name != table_name:
+            # 'RInHb2VUxA' ("Audit Detail for Risk Drivers & Trends"),
+            # 'dr-trend-src' ("Risk Snapshots"), etc. -- keep the custom
+            # name (referenced externally by some of them, e.g. an
+            # AI-insight text element's bracket formulas) rather than
+            # overwriting it to the warehouse table name as done for the
+            # other 8. Do NOT also rewrite this element's own self-ref
+            # formulas from table_name to custom_name -- tried that first
+            # and it broke things: a bare `[table_name/Col]` formula is
+            # this element's reference to its SOURCE (the new stub, whose
+            # own name IS table_name), not to itself, so rewriting it to
+            # the element's OWN name turns it into a bogus self-reference
+            # ("Dependency not found" on a column that plainly exists).
+            # The custom name only needs to be correct for how OTHER
+            # elements address this one -- it has no bearing on how this
+            # element addresses its own source.
+            log(f"kept custom name '{custom_name}' on '{eid}' (referenced externally); "
+                f"left its own self-ref formulas pointed at source table '{table_name}' unchanged")
+        else:
+            e["name"] = table_name
+
+        # Cross-element bracket references (e.g. xt-risk's "Tier" column
+        # doing `Lookup([RISK_SCORES/Risk Tier], ...)`, or the AI-insight
+        # text above doing `[Audit Detail.../Risk Tier]`) only resolve
+        # against a column's *explicit* `name` -- unlike a bare
+        # same-element self-ref, which falls back to the warehouse
+        # column's raw default regardless of whether `name` is set.
+        # Every direct element's passthrough columns came from the
+        # warehouse-table source with name=None (fine under that source
+        # kind), so ALL of them need this backfill now that source is
+        # kind:"table" and something elsewhere may reference them by
+        # name -- not just the 4 with a custom name of their own.
+        existing_names = {c.get("name") for c in e.get("columns", []) if c.get("name")}
+        named = 0
+        for c in e.get("columns", []):
+            if c.get("name"):
+                continue
+            m = _PASSTHROUGH_FORMULA_RE.match(c.get("formula") or "")
+            if m and m.group(1) not in existing_names:
+                c["name"] = m.group(1)
+                existing_names.add(m.group(1))
+                named += 1
+        if named:
+            log(f"restored {named} passthrough column name(s) on '{eid}'")
     log(f"repointed {len(DIRECT_ELEMENTS)} direct elements")
 
+    _repoint_warehouse_table_refs(doc)
 
     # 6 Custom-SQL elements: rewrite statement text to query the new
     # input tables' backing SIGDS write-tables via the proven dedup-CTE
@@ -1147,8 +1234,8 @@ def _dedup_cte(sigds_table):
 
 
 def _rewire_sql_elements(byid, sigds):
-    r, ri, a, ac, e, al = (sigds["RESTAURANTS"], sigds["RISK_SCORES"], sigds["ACTION_ITEMS"],
-                            sigds["ACTION_LOG"], sigds["EMPLOYEES"], sigds["TASK_COMPLETIONS"])
+    r, ri, a, ac, e = (sigds["RESTAURANTS"], sigds["RISK_SCORES"], sigds["ACTION_ITEMS"],
+                       sigds["ACTION_LOG"], sigds["EMPLOYEES"])
     audits = sigds["FOOD_SAFETY_AUDITS"]
     tasks_completions = sigds["TASK_COMPLETIONS"]
 
@@ -1194,7 +1281,7 @@ def _rewire_sql_elements(byid, sigds):
         f"WITH restaurants AS {_dedup_cte(r)},\n"
         f"employees AS {_dedup_cte(e)},\n"
         f"action_items AS {_dedup_cte(a)},\n"
-        f"action_log AS {_dedup_cte(al)},\n"
+        f"action_log AS {_dedup_cte(ac)},\n"
         f"risk AS {_dedup_cte(ri)},\n"
         # "today" anchors to RISK_SCORES' own MAX(date), matching the
         # exemplar's original pattern and every other rewritten element
