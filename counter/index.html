@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Animated Counter</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  #root { box-sizing: border-box; width: 100%; height: 100%; display: flex;
+    flex-direction: column; align-items: center; justify-content: center; padding: 8px; }
+  #label { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #3b82f6; margin-bottom: 4px; }
+  #value { font-weight: 700; color: #ffffff; line-height: 1.1; }
+  #sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="label"></div>
+  <div id="value"></div>
+  <div id="sub"></div>
+</div>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  function synth() { return { value: 2847563, label: 'TOTAL REVENUE', format: '$,.0f' }; }
+
+  function formatNum(n, fmt) {
+    var num = Number(n);
+    if (!isFinite(num)) return String(n);
+    var f = (fmt || '').trim();
+    if (f.indexOf('$') !== -1) {
+      var decimals = 0;
+      var dm = f.match(/\.(\d+)/);
+      if (dm) decimals = Number(dm[1]);
+      return '$' + num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    if (f.indexOf('%') !== -1) {
+      var pm = f.match(/\.(\d+)/);
+      var pd = pm ? Number(pm[1]) : 0;
+      return (num * 100).toFixed(pd) + '%';
+    }
+    if (f.indexOf(',') !== -1) {
+      var fm = f.match(/\.(\d+)/);
+      var fd = fm ? Number(fm[1]) : 0;
+      return num.toFixed(fd).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    return num.toLocaleString();
+  }
+
+  var animId = null;
+  var currentDisplay = 0;
+
+  function animateTo(target, fmt) {
+    if (animId) cancelAnimationFrame(animId);
+    var start = currentDisplay;
+    var diff = target - start;
+    var duration = 1200;
+    var startTime = null;
+
+    function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+    function step(ts) {
+      if (!startTime) startTime = ts;
+      var elapsed = ts - startTime;
+      var progress = Math.min(elapsed / duration, 1);
+      currentDisplay = start + diff * easeOut(progress);
+      document.getElementById('value').textContent = formatNum(currentDisplay, fmt);
+      if (progress < 1) animId = requestAnimationFrame(step);
+    }
+    animId = requestAnimationFrame(step);
+  }
+
+  function render(value, label, fmt) {
+    var root = document.getElementById('root');
+    var box = root.getBoundingClientRect();
+    var fontSize = Math.max(20, Math.min(box.width * 0.18, box.height * 0.4));
+    document.getElementById('value').style.fontSize = fontSize + 'px';
+    document.getElementById('label').textContent = label || '';
+    document.getElementById('label').style.fontSize = Math.max(10, fontSize * 0.22) + 'px';
+    animateTo(value, fmt);
+  }
+
+  var s = synth();
+  currentDisplay = s.value;
+  render(s.value, s.label, s.format);
+
+  var client = (window.SigmaPlugin && window.SigmaPlugin.client) || (window.Sigma && window.Sigma.client) || null;
+  if (client) {
+    client.config.configureEditorPanel([
+      { name: 'source', type: 'element' },
+      { name: 'value', type: 'column', source: 'source', allowMultiple: false },
+      { name: 'label', type: 'text', defaultValue: 'METRIC', placeholder: 'Label text' },
+      { name: 'format', type: 'text', defaultValue: '$,.0f', placeholder: '$,.0f or ,.0f or .1%' },
+      { name: 'labelColor', type: 'text', defaultValue: '#3b82f6', placeholder: 'Hex color for label' },
+      { name: 'valueColor', type: 'text', defaultValue: '#ffffff', placeholder: 'Hex color for value' }
+    ]);
+
+    var unsubData = null;
+    client.config.subscribe(function (config) {
+      var sourceId = config && config.source;
+      if (config && config.labelColor) document.getElementById('label').style.color = config.labelColor;
+      if (config && config.valueColor) document.getElementById('value').style.color = config.valueColor;
+      if (unsubData) { unsubData(); unsubData = null; }
+      if (!sourceId || !config.value) {
+        var fb = synth();
+        render(fb.value, (config && config.label) || fb.label, (config && config.format) || fb.format);
+        return;
+      }
+      unsubData = client.elements.subscribeToElementData(sourceId, function (data) {
+        try {
+          var valCol = data[config.value];
+          if (valCol && valCol.length) {
+            render(Number(valCol[0]), config.label || '', config.format || '$,.0f');
+          } else {
+            var fb = synth();
+            render(fb.value, config.label || fb.label, config.format || fb.format);
+          }
+        } catch (e) {
+          var fb2 = synth();
+          render(fb2.value, fb2.label, fb2.format);
+        }
+      });
+    });
+  }
+
+  new ResizeObserver(function () {
+    var v = document.getElementById('value');
+    var root = document.getElementById('root');
+    var box = root.getBoundingClientRect();
+    var fontSize = Math.max(20, Math.min(box.width * 0.18, box.height * 0.4));
+    v.style.fontSize = fontSize + 'px';
+    document.getElementById('label').style.fontSize = Math.max(10, fontSize * 0.22) + 'px';
+  }).observe(document.getElementById('root'));
+})();
+</script>
+</body>
+</html>

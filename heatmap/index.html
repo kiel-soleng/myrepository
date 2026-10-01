@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Calendar Heatmap</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  #root { box-sizing: border-box; width: 100%; height: 100%; padding: 12px; overflow-y: auto; }
+  .month-label { font-size: 11px; fill: #6b7280; }
+  .day-label { font-size: 9px; fill: #9ca3af; }
+  .cell { rx: 2; ry: 2; }
+  .legend { font-size: 10px; fill: #6b7280; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js"></script>
+<script>
+(function () {
+  'use strict';
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var DAYS = ['Mon','','Wed','','Fri','',''];
+  var COLORS = ['#1e293b','#1e3a5f','#1d4ed8','#3b82f6','#60a5fa','#93c5fd'];
+
+  function synth() {
+    var data = {};
+    var d = new Date(2026, 0, 1);
+    while (d.getFullYear() === 2026 && d.getMonth() < 6) {
+      var key = d.toISOString().slice(0, 10);
+      data[key] = Math.floor(Math.random() * 100000) + 5000;
+      d.setDate(d.getDate() + 1);
+    }
+    return data;
+  }
+
+  function quantile(values, q) {
+    var sorted = values.slice().sort(function(a,b){return a-b;});
+    var pos = (sorted.length - 1) * q;
+    var base = Math.floor(pos);
+    var rest = pos - base;
+    if (sorted[base + 1] !== undefined) return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+    return sorted[base];
+  }
+
+  function render(dayMap) {
+    var root = document.getElementById('root');
+    var dates = Object.keys(dayMap).sort();
+    if (dates.length === 0) { root.innerHTML = '<p style="color:#6b7280;text-align:center;">No data</p>'; return; }
+    var values = dates.map(function(k){return dayMap[k];});
+    var thresholds = [0];
+    for (var i = 1; i < COLORS.length; i++) thresholds.push(quantile(values, i / COLORS.length));
+
+    function colorFor(v) {
+      for (var j = COLORS.length - 1; j >= 0; j--) { if (v >= thresholds[j]) return COLORS[j]; }
+      return COLORS[0];
+    }
+
+    var firstDate = new Date(dates[0] + 'T00:00:00');
+    var lastDate = new Date(dates[dates.length-1] + 'T00:00:00');
+    var cellSize = 14, gap = 2, leftPad = 30, topPad = 20;
+    var totalWeeks = Math.ceil((lastDate - firstDate) / (7 * 86400000)) + 2;
+    var svgW = leftPad + totalWeeks * (cellSize + gap) + 40;
+    var svgH = topPad + 7 * (cellSize + gap) + 30;
+
+    var cells = '';
+    var monthLabels = '';
+    var seenMonths = {};
+
+    for (var di = 0; di < dates.length; di++) {
+      var dt = new Date(dates[di] + 'T00:00:00');
+      var daysSinceStart = Math.round((dt - firstDate) / 86400000);
+      var dayOfWeek = (dt.getDay() + 6) % 7;
+      var weekNum = Math.floor((daysSinceStart + ((firstDate.getDay() + 6) % 7)) / 7);
+      var x = leftPad + weekNum * (cellSize + gap);
+      var y = topPad + dayOfWeek * (cellSize + gap);
+      var val = dayMap[dates[di]] || 0;
+      cells += '<rect class="cell" x="'+x+'" y="'+y+'" width="'+cellSize+'" height="'+cellSize+'" fill="'+colorFor(val)+'">' +
+        '<title>'+dates[di]+': $'+Math.round(val).toLocaleString()+'</title></rect>';
+
+      var monthKey = dt.getFullYear()+'-'+dt.getMonth();
+      if (!seenMonths[monthKey] && dt.getDate() <= 7) {
+        seenMonths[monthKey] = true;
+        monthLabels += '<text class="month-label" x="'+x+'" y="'+(topPad-6)+'">'+MONTHS[dt.getMonth()]+' '+dt.getFullYear()+'</text>';
+      }
+    }
+
+    var dayLabels = '';
+    for (var d = 0; d < 7; d++) {
+      if (DAYS[d]) dayLabels += '<text class="day-label" x="'+(leftPad-6)+'" y="'+(topPad + d*(cellSize+gap) + cellSize - 3)+'" text-anchor="end">'+DAYS[d]+'</text>';
+    }
+
+    var legendX = leftPad;
+    var legendY = topPad + 7*(cellSize+gap) + 10;
+    var legendHtml = '<text class="legend" x="'+legendX+'" y="'+(legendY+cellSize-2)+'">Less</text>';
+    for (var li = 0; li < COLORS.length; li++) {
+      legendHtml += '<rect x="'+(legendX+30+li*(cellSize+2))+'" y="'+legendY+'" width="'+cellSize+'" height="'+cellSize+'" fill="'+COLORS[li]+'" rx="2"/>';
+    }
+    legendHtml += '<text class="legend" x="'+(legendX+30+COLORS.length*(cellSize+2)+4)+'" y="'+(legendY+cellSize-2)+'">More</text>';
+
+    root.innerHTML = '<svg width="'+svgW+'" height="'+svgH+'" xmlns="http://www.w3.org/2000/svg">' +
+      monthLabels + dayLabels + cells + legendHtml + '</svg>';
+  }
+
+  render(synth());
+
+  var client = (window.SigmaPlugin && window.SigmaPlugin.client) || (window.Sigma && window.Sigma.client) || null;
+  if (client) {
+    client.config.configureEditorPanel([
+      { name: 'source', type: 'element' },
+      { name: 'date', type: 'column', source: 'source', allowMultiple: false },
+      { name: 'value', type: 'column', source: 'source', allowMultiple: false }
+    ]);
+
+    var unsubData = null;
+    client.config.subscribe(function (config) {
+      var sourceId = config && config.source;
+      if (unsubData) { unsubData(); unsubData = null; }
+      if (!sourceId || !config.date || !config.value) { render(synth()); return; }
+      unsubData = client.elements.subscribeToElementData(sourceId, function (data) {
+        try {
+          var dateCol = data[config.date];
+          var valCol = data[config.value];
+          if (!dateCol || !valCol) { render(synth()); return; }
+          var dayMap = {};
+          for (var i = 0; i < dateCol.length; i++) {
+            var raw = dateCol[i];
+            var d;
+            if (typeof raw === 'number') d = new Date(raw);
+            else d = new Date(String(raw));
+            if (isNaN(d.getTime())) continue;
+            var key = d.toISOString().slice(0, 10);
+            dayMap[key] = (dayMap[key] || 0) + Number(valCol[i] || 0);
+          }
+          render(dayMap);
+        } catch (e) { render(synth()); }
+      });
+    });
+  }
+
+  new ResizeObserver(function () {}).observe(document.getElementById('root'));
+})();
+</script>
+</body>
+</html>
