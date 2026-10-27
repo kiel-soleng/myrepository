@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<!--
+  Bond Risk Heatmap: Sigma custom plugin for the Experian MLP Morning Surveillance page.
+
+  Rows = bonds, columns = surveillance metrics. Each cell is colored by the bond's
+  percentile rank against its peers on that metric (red = worst in the book), and
+  bonds are ordered by a composite risk score (mean rank). Clicking a row writes the
+  bond name to a workbook variable and fires an action trigger.
+
+  Editor-panel contract:
+    source       (element)                      bond-grain data element
+    bond         (column, source)               bond / deal name
+    metrics      (column, source, multiple)     metric columns to score
+    lowerIsWorse (text)                         comma-separated name fragments where a LOWER value is worse
+    selected     (variable)                     receives the clicked bond name
+    onSelect     (action-trigger)               fired after `selected` is set
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bond Risk Heatmap</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff;
+    font-family: Roboto, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #0e2240; }
+  #root { box-sizing: border-box; height: 100%; padding: 6px 8px; display: flex; flex-direction: column; }
+  #legend { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #7b879a; margin: 0 0 6px; }
+  #legend .bar { width: 120px; height: 8px; border-radius: 999px;
+    background: linear-gradient(90deg, #e3f3ea, #fdf3d8, #f6c9cf, #c3364a); }
+  #grid { flex: 1; min-height: 0; overflow: auto; }
+  table { border-collapse: separate; border-spacing: 4px; width: 100%; table-layout: fixed; }
+  th { font-size: 11px; font-weight: 500; color: #7b879a; text-align: center; padding: 2px 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  th.bond, td.bond { text-align: left; }
+  td { border-radius: 999px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.bond { font-weight: 600; padding: 0 10px; background: #f0f3f8; cursor: pointer; overflow: hidden; text-overflow: ellipsis; }
+  td.score { font-weight: 700; color: #fff; }
+  tr:hover td.bond { background: #dfe6f2; }
+  tr.sel td.bond { background: #1d4f91; color: #fff; }
+  #msg { margin: auto; color: #7b879a; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="legend"><span>Peer rank</span><span>best</span><span class="bar"></span><span>worst</span>
+    <span style="margin-left:auto">Click a bond to focus it</span></div>
+  <div id="grid"></div>
+</div>
+
+<!-- React must load before the SDK UMD build, or `client` is never created (see plugin-lifecycle §7). -->
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/@sigmacomputing/plugin@1.2.0/dist/umd/sigmacomputing-plugin.umd.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // Standalone preview data (no Sigma host). Fictional values only.
+  function synth() {
+    return {
+      bonds: ['BMT 2022-2', 'SRST 2024-1', 'CVRT 2023-2', 'BMT 2022-1'],
+      metrics: [
+        { name: '60+ DPD', fmt: 'pct2', values: [0.0689, 0.0094, 0.0034, 0.0033] },
+        { name: 'CPR 3mo', fmt: 'pct1', values: [0.214, 0.244, 0.397, 0.091] },
+        { name: 'VS4 drift', fmt: 'num1', values: [-35.1, -11.1, -14.6, -19.5] },
+      ],
+      lowerIsWorse: ['vs4', 'equity'],
+    };
+  }
+
+  var state = { model: synth(), selected: null };
+
+  function fmt(v, kind, name) {
+    if (v === null || v === undefined || !isFinite(v)) return '–';
+    var n = (name || '').toLowerCase();
+    if (kind === 'pct2' || (kind == null && /dpd|delinq/.test(n))) return (v * 100).toFixed(2) + '%';
+    if (kind === 'pct1' || (kind == null && /cpr|share|itm|money|chg|change/.test(n) && Math.abs(v) <= 1.5)) return (v * 100).toFixed(1) + '%';
+    if (kind === 'usd' || (kind == null && /upb|balance/.test(n))) return '$' + (v / 1e6).toFixed(0) + 'M';
+    return (v > 0 && /drift/.test(n) ? '+' : '') + Number(v).toFixed(1);
+  }
+
+  // 0 = best, 1 = worst among peers.
+  function ranks(values, lowerWorse) {
+    var idx = values.map(function (v, i) { return i; }).filter(function (i) { return isFinite(values[i]); });
+    idx.sort(function (a, b) { return lowerWorse ? values[b] - values[a] : values[a] - values[b]; });
+    var out = values.map(function () { return null; });
+    idx.forEach(function (i, r) { out[i] = idx.length > 1 ? r / (idx.length - 1) : 0.5; });
+    return out;
+  }
+
+  function heat(t) {
+    if (t === null) return '#f0f3f8';
+    var stops = [[227, 243, 234], [253, 243, 216], [246, 201, 207], [195, 54, 74]];
+    var x = t * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(x)), f = x - i;
+    var c = stops[i].map(function (s, k) { return Math.round(s + (stops[i + 1][k] - s) * f); });
+    return 'rgb(' + c.join(',') + ')';
+  }
+
+  function render() {
+    var m = state.model, grid = document.getElementById('grid');
+    if (!m || !m.bonds.length || !m.metrics.length) { grid.innerHTML = '<div id="msg">Bind a bond column and metric columns.</div>'; return; }
+    var r = m.metrics.map(function (mt) {
+      var lw = m.lowerIsWorse.some(function (k) { return k && mt.name.toLowerCase().indexOf(k) !== -1; });
+      return ranks(mt.values, lw);
+    });
+    var rows = m.bonds.map(function (b, i) {
+      var rs = r.map(function (col) { return col[i]; }).filter(function (x) { return x !== null; });
+      return { i: i, bond: b, score: rs.length ? rs.reduce(function (a, c) { return a + c; }, 0) / rs.length : 0 };
+    }).sort(function (a, b) { return b.score - a.score; });
+
+    var h = grid.clientHeight || 300, rowH = Math.max(22, Math.min(40, (h - 30) / Math.max(1, rows.length) - 4));
+    var fs = Math.max(10, Math.min(13, rowH * 0.42));
+    var html = '<table><thead><tr><th class="bond" style="width:22%">Bond</th><th style="width:11%">Risk score</th>' +
+      m.metrics.map(function (mt) { return '<th title="' + esc(mt.name) + '">' + esc(mt.name) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    rows.forEach(function (row) {
+      html += '<tr data-bond="' + esc(row.bond) + '"' + (row.bond === state.selected ? ' class="sel"' : '') + ' style="height:' + rowH + 'px;font-size:' + fs + 'px">' +
+        '<td class="bond" title="' + esc(row.bond) + '">' + esc(row.bond) + '</td>' +
+        '<td class="score" style="background:' + heat(row.score) + ';color:' + (row.score > 0.6 ? '#fff' : '#0e2240') + '">' + Math.round(row.score * 100) + '</td>' +
+        m.metrics.map(function (mt, k) {
+          var t = r[k][row.i];
+          return '<td style="background:' + heat(t) + ';color:' + (t !== null && t > 0.8 ? '#fff' : '#0e2240') + '">' + fmt(mt.values[row.i], mt.fmt, mt.name) + '</td>';
+        }).join('') + '</tr>';
+    });
+    grid.innerHTML = html + '</tbody></table>';
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  var client = (window.SigmaPlugin && window.SigmaPlugin.client) || null;
+
+  document.getElementById('grid').addEventListener('click', function (ev) {
+    var tr = ev.target.closest('tr[data-bond]');
+    if (!tr) return;
+    state.selected = tr.getAttribute('data-bond');
+    render();
+    if (!client) return;
+    var cfg = client.config.get() || {};
+    try { if (cfg.selected) client.config.setVariable(cfg.selected, state.selected); } catch (e) { console.warn('setVariable', e); }
+    try { if (cfg.onSelect) client.config.triggerAction(cfg.onSelect); } catch (e) { console.warn('triggerAction', e); }
+  });
+
+  render();
+
+  if (client) {
+    client.config.configureEditorPanel([
+      { name: 'source', type: 'element' },
+      { name: 'bond', type: 'column', source: 'source', allowMultiple: false, label: 'Bond' },
+      { name: 'metrics', type: 'column', source: 'source', allowMultiple: true, label: 'Metrics' },
+      { name: 'lowerIsWorse', type: 'text', label: 'Lower is worse (name fragments)', defaultValue: 'VS4,Equity' },
+      { name: 'selected', type: 'variable', label: 'Selected bond' },
+      { name: 'onSelect', type: 'action-trigger', label: 'On bond click' },
+    ]);
+
+    var unsubData = null, unsubCols = null, cols = {}, data = null, cfg = {};
+    function rebuild() {
+      var metricIds = [].concat(cfg.metrics || []);
+      if (!data || !cfg.bond || !data[cfg.bond] || !metricIds.length) return;
+      state.model = {
+        bonds: data[cfg.bond].map(String),
+        metrics: metricIds.filter(function (id) { return data[id]; }).map(function (id) {
+          return { name: (cols[id] && cols[id].name) || id, fmt: null, values: data[id].map(function (v) { return v === null ? null : Number(v); }) };
+        }),
+        lowerIsWorse: String(cfg.lowerIsWorse || 'VS4,Equity').toLowerCase().split(',').map(function (s) { return s.trim(); }),
+      };
+      render();
+    }
+    client.config.subscribe(function (c) {
+      var prev = cfg.source;
+      cfg = c || {};
+      if (cfg.source !== prev) {
+        if (unsubData) unsubData();
+        if (unsubCols) unsubCols();
+        unsubData = unsubCols = null;
+        if (cfg.source) {
+          unsubCols = client.elements.subscribeToElementColumns(cfg.source, function (c2) { cols = c2 || {}; rebuild(); });
+          unsubData = client.elements.subscribeToElementData(cfg.source, function (d) { data = d; rebuild(); });
+        }
+      }
+      rebuild();
+    });
+  }
+
+  new ResizeObserver(render).observe(document.getElementById('root'));
+})();
+</script>
+</body>
+</html>
